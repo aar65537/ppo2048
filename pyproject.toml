@@ -1,0 +1,7 @@
+[project]
+name = "ml-2048-experiments"
+version = "0.0.1"
+description = "Machine learning experiments on 2048."
+authors = [{name = "Avi Revah", email = "avraham.a.revah@gmail.com"}]
+requires-python = ">=3.11"
+license = {text = "MIT"}

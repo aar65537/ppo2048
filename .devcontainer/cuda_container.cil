@@ -1,0 +1,23 @@
+(block cuda_container
+    (blockinherit container)
+    (allow process process ( capability ( chown dac_override fowner fsetid kill net_bind_service setfcap setgid setpcap setuid ))) 
+    
+    (allow process container_file_t ( dir ( add_name create getattr ioctl lock open read remove_name rmdir search setattr write ))) 
+    (allow process container_file_t ( file ( append create getattr ioctl lock map open read rename setattr unlink write ))) 
+    (allow process container_file_t ( fifo_file ( getattr read write append ioctl lock open ))) 
+    (allow process container_file_t ( sock_file ( append getattr open read write ))) 
+    (allow process user_home_t ( dir ( add_name create getattr ioctl lock open read remove_name rmdir search setattr watch write ))) 
+    (allow process user_home_t ( file ( append create getattr ioctl lock map open read rename setattr unlink write ))) 
+    (allow process user_home_t ( fifo_file ( getattr read write append ioctl lock open ))) 
+    (allow process user_home_t ( sock_file ( append getattr open read write ))) 
+
+    (allow process container_runtime_tmpfs_t (file (open read)))
+    (allow process proc_t (file (ioctl)))
+    (allow process tmpfs_t (file (map execute)))
+    (allow process xserver_misc_device_t (chr_file (map)))
+    (allow process self (tcp_socket (listen)))
+    (allow process ephemeral_port_t (tcp_socket (name_connect)))
+    (allow process http_port_t (tcp_socket (name_connect listen)))
+    (allow process node_t (tcp_socket (node_bind)))
+    (allow process unreserved_port_t (tcp_socket (name_bind name_connect)))
+)

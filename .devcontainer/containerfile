@@ -1,0 +1,43 @@
+# GPU compatable development environment
+ARG CUDA_VERSION
+ARG UBUNTU_VERSION
+FROM nvidia/cuda:${CUDA_VERSION}-base-ubuntu${UBUNTU_VERSION}
+
+# Install system dependencies
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends curl git less software-properties-common zsh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install zsh
+ENV SHELL /usr/bin/zsh
+WORKDIR /root
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
+    && git clone https://github.com/zsh-users/zsh-autosuggestions .oh-my-zsh/custom/plugins/zsh-autosuggestions \
+    && git clone https://github.com/zsh-users/zsh-syntax-highlighting .oh-my-zsh/custom/plugins/zsh-syntax-highlighting
+
+# Install python
+ARG PYTHON_VERSION
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-distutils\
+    && rm -rf /var/lib/apt/lists/* \
+    && link /usr/bin/python${PYTHON_VERSION} /usr/bin/python \
+    && curl https://bootstrap.pypa.io/get-pip.py | python -
+
+# Install jax
+RUN python -m pip install --no-cache-dir "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
+# Install python dependencies
+WORKDIR /root
+COPY requirements.txt .
+RUN python -m pip install --no-cache-dir -r requirements.txt 
+
+# Load zsh config file
+WORKDIR /root
+RUN mkdir .oh-my-zsh/custom/plugins/dvc \
+    && dvc completion -s zsh >> .oh-my-zsh/custom/plugins/dvc/_dvc 
+COPY .zshrc .
+
+WORKDIR /workspaces

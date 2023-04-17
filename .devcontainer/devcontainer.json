@@ -1,0 +1,36 @@
+// For format details, see https://aka.ms/devcontainer.json.
+{
+	"name": "ml-2048-experiments",
+	"build": {
+		"dockerfile": "containerfile",
+		"context": ".",
+		"args": {
+			"CUDA_VERSION": "12.1.0",
+			"UBUNTU_VERSION": "22.04",
+			"PYTHON_VERSION": "3.11"
+		}
+	},
+	"runArgs": [
+		"--security-opt=label=type:cuda_container.process"
+	],
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"eamodio.gitlens",
+				"charliermarsh.ruff",
+				"tamasfe.even-better-toml",
+				"iterative.dvc",
+				"redhat.vscode-yaml"
+			],
+			"settings": {
+				"python.defaultInterpreterPath": "/usr/bin/python",
+				"python.formatting.provider": "black",
+				"files.associations": {
+					"*.dvc": "yaml",
+					"dvc.lock": "yaml"
+				}
+			}
+		}
+	}
+}

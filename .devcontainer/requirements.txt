@@ -1,0 +1,6 @@
+jumanji
+dm-haiku
+dvc
+ruff
+black
+ipykernel
