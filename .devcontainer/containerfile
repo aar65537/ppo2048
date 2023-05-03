@@ -9,13 +9,6 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y --no-install-recommends curl git less software-properties-common zsh \
     && rm -rf /var/lib/apt/lists/*
 
-# Install zsh
-ENV SHELL /usr/bin/zsh
-WORKDIR /root
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
-    && git clone https://github.com/zsh-users/zsh-autosuggestions .oh-my-zsh/custom/plugins/zsh-autosuggestions \
-    && git clone https://github.com/zsh-users/zsh-syntax-highlighting .oh-my-zsh/custom/plugins/zsh-syntax-highlighting
-
 # Install python
 ARG PYTHON_VERSION
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -29,15 +22,21 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Install jax
 RUN python -m pip install --no-cache-dir "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
-# Install python dependencies
-WORKDIR /root
-COPY requirements.txt .
-RUN python -m pip install --no-cache-dir -r requirements.txt 
+# Install other python dependencies
+WORKDIR /tmp
+COPY requirements/requirements.txt .
+COPY requirements/requirements-dev.txt .
+RUN python -m pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
 
-# Load zsh config file
+# Configure shell
+ENV SHELL /usr/bin/zsh
 WORKDIR /root
-RUN mkdir .oh-my-zsh/custom/plugins/dvc \
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended \
+    && git clone https://github.com/zsh-users/zsh-autosuggestions .oh-my-zsh/custom/plugins/zsh-autosuggestions \
+    && git clone https://github.com/zsh-users/zsh-syntax-highlighting .oh-my-zsh/custom/plugins/zsh-syntax-highlighting \
+    && mkdir .oh-my-zsh/custom/plugins/dvc \
     && dvc completion -s zsh >> .oh-my-zsh/custom/plugins/dvc/_dvc 
-COPY .zshrc .
+COPY .devcontainer/.zshrc .
 
-WORKDIR /workspaces
+# Set working dir
+WORKDIR /workspaces/ppo2048

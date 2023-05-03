@@ -1,9 +1,9 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
-	"name": "ml-2048-experiments",
+	"name": "ppo2048",
 	"build": {
 		"dockerfile": "containerfile",
-		"context": ".",
+		"context": "..",
 		"args": {
 			"CUDA_VERSION": "12.1.0",
 			"UBUNTU_VERSION": "22.04",
@@ -11,17 +11,19 @@
 		}
 	},
 	"runArgs": [
-		"--security-opt=label=type:cuda_container.process"
+		"--security-opt=no-new-privileges",
+   		"--cap-drop=ALL",
+    	"--security-opt=label=type:nvidia_container_t"
 	],
 	"customizations": {
 		"vscode": {
 			"extensions": [
 				"ms-python.python",
 				"eamodio.gitlens",
-				"charliermarsh.ruff",
 				"tamasfe.even-better-toml",
-				"iterative.dvc",
-				"redhat.vscode-yaml"
+				"charliermarsh.ruff",
+				"redhat.vscode-yaml",
+				"iterative.dvc"
 			],
 			"settings": {
 				"python.defaultInterpreterPath": "/usr/bin/python",

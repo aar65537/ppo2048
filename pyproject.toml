@@ -1,7 +1,7 @@
 [project]
-name = "ml-2048-experiments"
+name = "ppo2048"
 version = "0.0.1"
-description = "Machine learning experiments on 2048."
+description = "Proximal policy optimization implementation on logic game 2048."
 authors = [{name = "Avi Revah", email = "avraham.a.revah@gmail.com"}]
 requires-python = ">=3.11"
 license = {text = "MIT"}

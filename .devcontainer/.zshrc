@@ -1,5 +1,7 @@
 export ZSH="/root/.oh-my-zsh"
 
+ENABLE_CORRECTION="true"
+HYPHEN_INSENSITIVE="true"
 ZSH_THEME="Soliah"
 
 plugins=(
@@ -12,12 +14,11 @@ plugins=(
 
 alias pycpu="JAX_PLATFORM_NAME=cpu python"
 
-source $ZSH/oh-my-zsh.sh
 autoload -Uz compinit && compinit
+source $ZSH/oh-my-zsh.sh
 
 # Case insensitive match
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
-
 # Group matches and describe.
 zstyle ':completion:*:*:*:*:*' menu select
 zstyle ':completion:*:matches' group 'yes'
