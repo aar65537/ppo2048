@@ -5,8 +5,9 @@ import chex
 import haiku as hk
 import jax
 import jax.numpy as jnp
+from jumanji.environments.logic.game_2048.types import Observation
 
-from ppo2048.types import Embedding, NetworkParams, Observation
+from ppo2048.types import Embedding, NetworkParams
 
 
 def _cnn_fn(n_features: int, observation: Observation) -> Embedding:
@@ -87,7 +88,7 @@ class Network(NamedTuple):
 
 class Networks(NamedTuple):
     """Defines the policy-value networks with optional preprocess network. The
-    assumption is that the networks are given a batchof observations."""
+    assumption is that the networks are given a batch of observations."""
 
     embedding: Network | None
     policy: Network
@@ -124,32 +125,39 @@ class Networks(NamedTuple):
     def apply(
         self, params: NetworkParams, observation: Observation
     ) -> tuple[chex.Array, chex.Array]:
-        if self.embedding is not None:
-            observation = self.apply_embedding(params, observation)
-        neglogprobs = self.policy.apply(params.policy, observation)
-        value = self.value.apply(params.value, observation)
+        if self.embedding is None:
+            neglogprobs = self.policy.apply(params.policy, observation)
+            value = self.value.apply(params.value, observation)
+        else:
+            embedding = self.apply_embedding(params, observation)
+            neglogprobs = self.policy.apply(params.policy, embedding)
+            value = self.value.apply(params.value, embedding)
         return neglogprobs, value
 
     def apply_embedding(
         self, params: NetworkParams, observation: Observation
     ) -> Embedding:
-        if self.embedding is None:
+        if self.embedding is None or params.embedding is None:
             raise ValueError("No shared embedding network.")
-        embedding = self.embedding.apply(params.embedding, observation)
+        embedding: Embedding = self.embedding.apply(params.embedding, observation)
         return embedding
 
     def apply_policy(
         self, params: NetworkParams, observation: Observation
     ) -> chex.Array:
-        if self.embedding is not None:
-            observation = self.apply_embedding(params, observation)
-        neglogprobs = self.policy.apply(params.policy, observation)
+        if self.embedding is None:
+            neglogprobs = self.policy.apply(params.policy, observation)
+        else:
+            embedding = self.apply_embedding(params, observation)
+            neglogprobs = self.policy.apply(params.policy, embedding)
         return neglogprobs
 
     def apply_value(
         self, params: NetworkParams, observation: Observation
     ) -> chex.Array:
-        if self.embedding is not None:
-            observation = self.apply_embedding(params, observation)
-        value = self.value.apply(params.value, observation)
+        if self.embedding is None:
+            value = self.value.apply(params.value, observation)
+        else:
+            embedding = self.apply_embedding(params, observation)
+            value = self.value.apply(params.value, embedding)
         return value

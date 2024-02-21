@@ -5,8 +5,9 @@ import chex
 import jax
 import jax.numpy as jnp
 from jumanji.env import Environment
+from jumanji.environments.logic.game_2048.types import Observation, State
 
-from ppo2048.types import EnvState, NetworkParams, Observation, Step
+from ppo2048.types import NetworkParams, Step
 
 if TYPE_CHECKING:
     from ppo2048.networks import Networks
@@ -15,27 +16,18 @@ if TYPE_CHECKING:
 class Policy(ABC):
     @abstractmethod
     def neglogprobs(
-        self,
-        observation: Observation,
-        *args: tuple[chex.ArrayTree],
-        **kwargs: dict["str", chex.ArrayTree],
+        self, observation: Observation, *args: chex.ArrayTree, **kwargs: chex.ArrayTree
     ) -> chex.Array:
         raise NotImplementedError
 
     @abstractmethod
     def value(
-        self,
-        observation: Observation,
-        *args: tuple[chex.ArrayTree],
-        **kwargs: dict["str", chex.ArrayTree],
+        self, observation: Observation, *args: chex.ArrayTree, **kwargs: chex.ArrayTree
     ) -> chex.Array:
         raise NotImplementedError
 
     def apply(
-        self,
-        observation: Observation,
-        *args: tuple[chex.ArrayTree],
-        **kwargs: dict["str", chex.ArrayTree],
+        self, observation: Observation, *args: chex.ArrayTree, **kwargs: chex.ArrayTree
     ) -> chex.Array:
         neglogprobs = self.neglogprobs(observation, *args, **kwargs)
         value = self.value(observation, *args, **kwargs)
@@ -45,8 +37,8 @@ class Policy(ABC):
         self,
         observation: Observation,
         action: chex.Array,
-        *args: tuple[chex.ArrayTree],
-        **kwargs: dict["str", chex.ArrayTree],
+        *args: chex.ArrayTree,
+        **kwargs: chex.ArrayTree,
     ) -> tuple[chex.Array, chex.Array]:
         neglogprobs, value = self.apply(observation, *args, **kwargs)
         neglogprob = neglogprobs[action]
@@ -56,8 +48,8 @@ class Policy(ABC):
         self,
         key: chex.PRNGKey,
         observation: Observation,
-        *args: tuple[chex.ArrayTree],
-        **kwargs: dict["str", chex.ArrayTree],
+        *args: chex.ArrayTree,
+        **kwargs: chex.ArrayTree,
     ) -> tuple[chex.Array, chex.Array, chex.Array]:
         del key
         neglogprobs, value = self.apply(observation, *args, **kwargs)
@@ -67,14 +59,14 @@ class Policy(ABC):
 
     def rollout(
         self,
-        env: Environment,
+        env: Environment[State],
         n_steps: int,
         key: chex.PRNGKey,
-        init_state: EnvState,
-        *args: tuple[chex.ArrayTree],
-        **kwargs: tuple[chex.ArrayTree],
-    ) -> tuple[EnvState, Step]:
-        def step(state: EnvState, key: chex.PRNGKey) -> tuple[EnvState, Step]:
+        init_state: State,
+        *args: chex.ArrayTree,
+        **kwargs: chex.ArrayTree,
+    ) -> tuple[State, Step]:
+        def step(state: State, key: chex.PRNGKey) -> tuple[State, Step]:
             observation = Observation(state.board, state.action_mask)
             action, neglogprob, value = self.choose(key, observation, *args, **kwargs)
             state, timestep = env.step(state, action)

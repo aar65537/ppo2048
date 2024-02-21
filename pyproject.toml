@@ -1,7 +1,33 @@
-[project]
+[tool.poetry]
 name = "ppo2048"
-version = "0.0.1"
+version = "0.1.0"
 description = "Proximal policy optimization implementation on logic game 2048."
-authors = [{name = "Avi Revah", email = "avraham.a.revah@gmail.com"}]
-requires-python = ">=3.11"
-license = {text = "MIT"}
+authors = ["Avi Revah <avraham.a.revah@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+dash = "^2.10.2"
+dm-haiku = "^0.0.9"
+dvc = "^3.0.0"
+jumanji = {git = "https://github.com/aar65537/jumanji.git", branch = "perf-improvements-2048"}
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+ipykernel = "^6.23.2"
+mypy = "^1.3.0"
+ruff = "^0.0.272"
+
+[[tool.poetry.source]]
+name = "jax"
+url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
+default = false
+secondary = true
+
+[tool.mypy]
+python_version = 3.11
+strict = true
+
+[tool.ruff]
+select = ["E", "F", "W", "I", "N"]
