@@ -1,33 +1,38 @@
-[tool.poetry]
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
 name = "ppo2048"
-version = "0.1.0"
-description = "Proximal policy optimization implementation on logic game 2048."
-authors = ["Avi Revah <avraham.a.revah@gmail.com>"]
-license = "MIT"
+version = "0.0.1"
+dependencies = ["dm-haiku", "jumanji"]
+requires-python = ">=3.12"
+authors = [{ name = "Avi Revah", email = "avraham.a.revah@gmail.com" }]
+description = "Proximal policy optimization agents to play logic game 2048."
 readme = "README.md"
+classifiers = ["License :: OSI Approved :: Apache Software License"]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-dash = "^2.10.2"
-dm-haiku = "^0.0.9"
-dvc = "^3.0.0"
-jumanji = {git = "https://github.com/aar65537/jumanji.git", branch = "perf-improvements-2048"}
-
-[tool.poetry.group.dev.dependencies]
-black = "^23.3.0"
-ipykernel = "^6.23.2"
-mypy = "^1.3.0"
-ruff = "^0.0.272"
-
-[[tool.poetry.source]]
-name = "jax"
-url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
-default = false
-secondary = true
+[project.optional-dependencies]
+dev = ["chex", "ipykernel", "ruff", "mypy", "pytest"]
+train = ["dvc"]
 
 [tool.mypy]
-python_version = 3.11
-strict = true
+python_version = "3.12"
+exclude = ["local/*"]
+disallow_untyped_calls = true
+disallow_untyped_defs = true
 
-[tool.ruff]
-select = ["E", "F", "W", "I", "N"]
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
+
+[tool.ruff.lint]
+preview = true
+select = ["ALL"]
+ignore = ["COM812", "D"]
+# ignore = ["COM812", "SLF", "TCH010", "D203", "D212"]
+
+[tool.ruff.lint.per-file-ignores]
+# "local/*" = ["F401", "D", "ERA", "CPY", "T201", "ANN"]
+
+[tool.ruff.lint.flake8-copyright]
+author = "The PPO2048 Authors"

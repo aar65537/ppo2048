@@ -1,37 +1,56 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
 	"name": "ppo2048",
+	"remoteUser": "root",
+	"workspaceMount": "",
 	"build": {
 		"dockerfile": "containerfile",
 		"context": "..",
 		"args": {
-			"CUDA_VERSION": "12.1.0",
-			"UBUNTU_VERSION": "22.04",
-			"PYTHON_VERSION": "3.11"
+			"PYTHON_VERSION": "3.12",
+			"WORKSPACE_FOLDER": "/workspaces/${localWorkspaceFolderBasename}"
+		}
+	},
+	"features": {
+		"ghcr.io/devcontainers-contrib/features/zsh-plugins:0": {
+			"plugins": "dvc history-substring-search zsh-autosuggestions zsh-syntax-highlighting",
+			"omzPlugins": "https://github.com/zsh-users/zsh-autosuggestions https://github.com/zsh-users/zsh-syntax-highlighting"
 		}
 	},
 	"runArgs": [
-		"--security-opt=no-new-privileges",
-   		"--cap-drop=ALL",
-    	"--security-opt=label=type:nvidia_container_t"
+		"--cap-drop=ALL",
+		"--device=nvidia.com/gpu=all",
+		"--volume=${localWorkspaceFolder}:/workspaces/${localWorkspaceFolderBasename}:Z"
+	],
+	"securityOpt": [
+		"no-new-privileges",
+		"label=type:container_runtime_t"
 	],
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"ms-python.python",
-				"eamodio.gitlens",
-				"tamasfe.even-better-toml",
 				"charliermarsh.ruff",
+				"eamodio.gitlens",
+				"iterative.dvc",
+				"ms-python.python",
+				"ms-python.mypy-type-checker",
 				"redhat.vscode-yaml",
-				"iterative.dvc"
+				"tamasfe.even-better-toml"
 			],
 			"settings": {
-				"python.defaultInterpreterPath": "/usr/bin/python",
-				"python.formatting.provider": "black",
+				"editor.formatOnSave": true,
 				"files.associations": {
 					"*.dvc": "yaml",
 					"dvc.lock": "yaml"
-				}
+				},
+				"mypy-type-checker.ignorePatterns": [
+					"local/*"
+				],
+				"mypy-type-checker.importStrategy": "fromEnvironment",
+				"python.editor.codeActionsOnSave": {
+					"source.organizeImports": "always"
+				},
+				"python.editor.defaultFormatter": "charliermarsh.ruff"
 			}
 		}
 	}
