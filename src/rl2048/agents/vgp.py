@@ -43,9 +43,10 @@ class VGPAgent(Agent):
 
         agent = self.update_params(grads)
 
+        batch_size = 1 if self.batch_size is None else self.batch_size
         report = EpochReport(
             epoch=jnp.asarray(0 if epoch is None else epoch, int),
-            n_steps=jnp.asarray(n_steps, int),
+            n_steps=jnp.asarray(n_steps * batch_size, int),
             n_games=rollout.n_finished(),
             avg_score=rollout.avg_score(),
             high_score=rollout.high_score(),
@@ -57,6 +58,8 @@ class VGPAgent(Agent):
 
     def loss(self, step: Rollout) -> Array:
         log_prob_fn = eqx.filter_vmap(self.policy.log_prob)
+        if self.batch_size is not None:
+            log_prob_fn = eqx.filter_vmap(log_prob_fn)
         log_prob: Array = log_prob_fn(step.state.observation(), step.action)
         weights = step.reward_to_go() * step.finished()
         return -(log_prob * weights).mean()

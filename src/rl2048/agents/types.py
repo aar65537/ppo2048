@@ -73,7 +73,7 @@ class Rollout(NamedTuple):
         return jnp.equal(self.final_step_type, StepType.MID)
 
     def reward_to_go(self) -> Array:
-        return (self.final_state.score - self.next_state.score).astype(int)
+        return (self.final_state.score - self.state.score).astype(int)
 
     def total_score(self, *args: Any, **kwargs: Any) -> Array:
         return (self.final_state.score * self.last()).sum(*args, **kwargs).astype(int)
