@@ -1,4 +1,4 @@
-# Copyright 2023-2024 The PPO2048 Authors
+# Copyright 2024 the rl2048 Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,5 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from functools import partial
+from typing import TypeVar
 
-"""Proximal policy optimization agents to play logic game 2048."""
+import jax
+from jaxtyping import Array, PyTree
+
+T = TypeVar("T", bound="PyTree")
+
+
+def _leaf_select(cond: Array, x: T, y: T) -> T:
+    selected: T = jax.lax.cond(cond, lambda _x, _: _x, lambda _, _y: _y, x, y)  # type: ignore[no-untyped-call]
+    return selected
+
+
+def tree_select(cond: Array, x: T, y: T) -> T:
+    selected: T = jax.tree_map(partial(_leaf_select, cond), x, y)
+    return selected

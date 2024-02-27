@@ -3,9 +3,9 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ppo2048"
+name = "rl2048"
 version = "0.0.1"
-dependencies = ["dm-haiku", "jumanji"]
+dependencies = ["equinox", "jumanji", "optax"]
 requires-python = ">=3.12"
 authors = [{ name = "Avi Revah", email = "avraham.a.revah@gmail.com" }]
 description = "Proximal policy optimization agents to play logic game 2048."
@@ -13,14 +13,25 @@ readme = "README.md"
 classifiers = ["License :: OSI Approved :: Apache Software License"]
 
 [project.optional-dependencies]
-dev = ["chex", "ipykernel", "ruff", "mypy", "pytest"]
+dash = ["dash"]
+dev = ["ruff", "mypy", "pytest"]
 train = ["dvc"]
 
 [tool.mypy]
 python_version = "3.12"
 exclude = ["local/*"]
 disallow_untyped_calls = true
+disallow_untyped_decorators = false
 disallow_untyped_defs = true
+strict_equality = true
+strict_optional = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_ignores = false
+
+[[tool.mypy.overrides]]
+module = ["optax.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]
@@ -28,11 +39,11 @@ addopts = ["--import-mode=importlib"]
 [tool.ruff.lint]
 preview = true
 select = ["ALL"]
-ignore = ["COM812", "D"]
-# ignore = ["COM812", "SLF", "TCH010", "D203", "D212"]
+ignore = ["ANN401", "COM812", "PD008", "UP040", "D"]
 
 [tool.ruff.lint.per-file-ignores]
-# "local/*" = ["F401", "D", "ERA", "CPY", "T201", "ANN"]
+"local/*" = ["CPY", "ERA001", "F401", "T201", "F841"]
+"tests/*" = ["FBT001", "S101", "SLF001"]
 
 [tool.ruff.lint.flake8-copyright]
-author = "The PPO2048 Authors"
+author = "the rl2048 Authors"

@@ -9,7 +9,7 @@ RUN python -m pip install --no-cache-dir "jax[cuda12_pip]" -f https://storage.go
 ARG WORKSPACE_FOLDER
 WORKDIR ${WORKSPACE_FOLDER}
 COPY pyproject.toml .
-RUN mkdir -p src/ppo2048 && python -m pip install --no-cache-dir --upgrade -e ".[dev,train]"
+RUN mkdir src && python -m pip install --no-cache-dir --upgrade -e ".[dash,dev,train]"
 
 # Configure shell
 ENV SHELL /usr/bin/zsh

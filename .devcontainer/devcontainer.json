@@ -1,6 +1,6 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
-	"name": "ppo2048",
+	"name": "rl2048",
 	"remoteUser": "root",
 	"workspaceMount": "",
 	"build": {
