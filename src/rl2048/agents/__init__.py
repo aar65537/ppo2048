@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from rl2048.agents.actor_critic import ActorCriticAgent
 from rl2048.agents.base import Agent
 from rl2048.agents.types import Report, Rollout
 from rl2048.agents.vgp import VGPAgent
 
-__all__ = ["Agent", "Report", "Rollout", "VGPAgent"]
+__all__ = ["ActorCriticAgent", "Agent", "Report", "Rollout", "VGPAgent"]

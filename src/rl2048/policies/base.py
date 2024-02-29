@@ -27,28 +27,16 @@ class Policy(eqx.Module):
     """Abstract policy class."""
 
     @abstractmethod
-    def __call__(
-        self,
-        observation: Observation,
-        key: PRNGKey | None = None,
-        *,
-        inference: bool = True,
-    ) -> Array:
+    def __call__(self, observation: Observation, key: PRNGKey | None = None) -> Array:
         raise NotImplementedError
 
-    def log_prob(
-        self,
-        observation: Observation,
-        action: Array,
-        key: PRNGKey | None = None,
-        *,
-        inference: bool = True,
-    ) -> Array:
-        return jnp.log(self(observation, key, inference=inference)[action])
-
-    def sample(
-        self, key: PRNGKey, observation: Observation, *, inference: bool = True
-    ) -> Array:
+    def sample(self, key: PRNGKey, observation: Observation) -> tuple[Array, Array]:
         call_key, choice_key = jax.random.split(key)
-        probs = self(observation, call_key, inference=inference)
-        return jax.random.choice(choice_key, jnp.arange(4, dtype=jnp.int32), p=probs)
+        probs = self(observation, call_key)
+        action = jax.random.choice(choice_key, jnp.arange(4, dtype=jnp.int32), p=probs)
+        return probs, action
+
+    def log_prob(
+        self, observation: Observation, action: Array, key: PRNGKey | None = None
+    ) -> Array:
+        return jnp.log(self(observation, key)[action])

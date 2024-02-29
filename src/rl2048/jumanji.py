@@ -41,11 +41,11 @@ class Observation(NamedTuple):
 
 @dataclass
 class State(_State):
-    board: Board  # (board_size, board_size)
-    step_count: Array  # ()
-    action_mask: Array  # (4,)
-    score: Array  # ()
-    key: PRNGKey  # (2,)
+    board: Board  # (board_size, board_size)[int32]
+    step_count: Array  # ()[int32]
+    action_mask: Array  # (4,)[bool]
+    score: Array  # ()[float32]
+    key: PRNGKey  # (2,)[uint32]
 
     def max_tile(self, *args: Any, **kwargs: Any) -> Array:
         return 2 ** self.board.max(*args, **kwargs)
@@ -101,7 +101,10 @@ class Game2048(Wrapper[State]):
         return State(**next_state), timestep
 
 
+DEFAULT_ENV = Game2048()
+
 __all__ = [
+    "DEFAULT_ENV",
     "Board",
     "Game2048",
     "MatplotViewer",

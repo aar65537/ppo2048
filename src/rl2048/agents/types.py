@@ -13,11 +13,12 @@
 # limitations under the License.
 
 
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeAlias
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array
+from chex import PRNGKey
+from jaxtyping import Array, PyTree
 
 from rl2048.jumanji import State, StepType
 
@@ -25,20 +26,36 @@ if TYPE_CHECKING:
     from rl2048.agents.base import Agent
 
 
-class BackwardRollout(NamedTuple):
-    step_type: StepType
-    state: State
+ForwardCarry: TypeAlias = State
 
 
-class ForwardRollout(NamedTuple):
-    step_type: StepType
+class BackwardCarry(NamedTuple):
+    terminates: Array
+    extras: dict[str, PyTree]
+    key: PRNGKey
+
+    def replace(self, **kwargs: PyTree) -> "BackwardCarry":
+        key = self.key
+        terminates = self.terminates
+        extras = self.extras
+        for _key, _value in kwargs.items():
+            match _key:
+                case "key":
+                    key = _value
+                case "terminates":
+                    terminates = _value
+                case _:
+                    extras[_key] = _value
+        return BackwardCarry(terminates, extras, key)
+
+
+class ForwardStep(NamedTuple):
     state: State
+    probs: Array
     action: Array
     reward: Array
     next_state: State
-
-    def backward(self) -> BackwardRollout:
-        return BackwardRollout(self.step_type, self.next_state)
+    step_type: StepType
 
     def mid(self) -> Array:
         return jnp.equal(self.step_type, StepType.MID)
@@ -46,19 +63,20 @@ class ForwardRollout(NamedTuple):
     def last(self) -> Array:
         return jnp.equal(self.step_type, StepType.LAST)
 
-    def at(self, key: Any, /) -> "ForwardRollout":
-        rollout: ForwardRollout = jax.tree_map(lambda x: x[key], self)
+    def at(self, key: Any, /) -> "ForwardStep":
+        rollout: ForwardStep = jax.tree_map(lambda x: x[key], self)
         return rollout
 
 
-class Rollout(NamedTuple):
-    step_type: StepType
+class BackwardStep(NamedTuple):
     state: State
+    probs: Array
     action: Array
     reward: Array
     next_state: State
-    final_step_type: StepType
-    final_state: State
+    step_type: StepType
+    terminates: Array
+    extras: dict[str, PyTree]
 
     def mid(self) -> Array:
         return jnp.equal(self.step_type, StepType.MID)
@@ -66,35 +84,33 @@ class Rollout(NamedTuple):
     def last(self) -> Array:
         return jnp.equal(self.step_type, StepType.LAST)
 
-    def finished(self) -> Array:
-        return jnp.equal(self.final_step_type, StepType.LAST)
+    def truncates(self) -> Array:
+        return jnp.logical_not(self.terminates)
 
-    def truncated(self) -> Array:
-        return jnp.equal(self.final_step_type, StepType.MID)
-
-    def reward_to_go(self) -> Array:
-        return (self.final_state.score - self.state.score).astype(int)
-
-    def total_score(self, *args: Any, **kwargs: Any) -> Array:
-        return (self.final_state.score * self.last()).sum(*args, **kwargs).astype(int)
-
-    def n_finished(self, *args: Any, **kwargs: Any) -> Array:
+    def n_games(self, *args: Any, **kwargs: Any) -> Array:
         return self.last().sum(*args, **kwargs)
 
     def avg_score(self, *args: Any, **kwargs: Any) -> Array:
-        return jnp.nan_to_num(
-            self.total_score(*args, **kwargs) / self.n_finished(*args, **kwargs)
-        )
+        total_score = (self.next_state.score * self.last()).sum(*args, **kwargs)
+        n_games = self.n_games(*args, **kwargs)
+        return jnp.nan_to_num(total_score / n_games)
 
     def high_score(self, *args: Any, **kwargs: Any) -> Array:
-        return self.final_state.score.max(*args, **kwargs).astype(int)
+        return self.next_state.score.max(*args, **kwargs)
 
     def max_tile(self, *args: Any, **kwargs: Any) -> Array:
-        return self.final_state.max_tile(*args, **kwargs)
+        return self.next_state.max_tile(*args, **kwargs)
 
-    def at(self, key: Any, /) -> "Rollout":
-        rollout: Rollout = jax.tree_map(lambda x: x[key], self)
+    def at(self, key: Any, /) -> "BackwardStep":
+        rollout: BackwardStep = jax.tree_map(lambda x: x[key], self)
         return rollout
+
+    @staticmethod
+    def combine(step: ForwardStep, carry: BackwardCarry) -> "BackwardStep":
+        return BackwardStep(*step, *carry[:2])
+
+
+Rollout: TypeAlias = BackwardStep
 
 
 class EpochReport(NamedTuple):
@@ -104,23 +120,23 @@ class EpochReport(NamedTuple):
     avg_score: Array
     high_score: Array
     max_tile: Array
-    loss: Array
-
-    def at(self, key: Any, /) -> "EpochReport":
-        report: EpochReport = jax.tree_map(lambda x: x[key], self)
-        return report
+    extras: dict[str, PyTree]
 
     @staticmethod
-    def init() -> "EpochReport":
+    def init(**kwags: PyTree) -> "EpochReport":
         return EpochReport(
             epoch=jnp.asarray(0, int),
             n_steps=jnp.asarray(0, int),
             n_games=jnp.asarray(0, int),
             avg_score=jnp.asarray(0, float),
-            high_score=jnp.asarray(0, int),
+            high_score=jnp.asarray(0, float),
             max_tile=jnp.asarray(0, int),
-            loss=jnp.asarray(0, float),
+            extras=kwags,
         )
+
+    def at(self, key: Any, /) -> "EpochReport":
+        report: EpochReport = jax.tree_map(lambda x: x[key], self)
+        return report
 
 
 class AgentReport(NamedTuple):
@@ -128,8 +144,8 @@ class AgentReport(NamedTuple):
     epoch: EpochReport
 
     @staticmethod
-    def init(agent: "Agent") -> "AgentReport":
-        return AgentReport(agent=agent, epoch=EpochReport.init())
+    def init(agent: "Agent", **kwargs: PyTree) -> "AgentReport":
+        return AgentReport(agent=agent, epoch=EpochReport.init(**kwargs))
 
 
 class TrainCarry(NamedTuple):

@@ -23,12 +23,6 @@ from rl2048.policies.base import Policy
 
 class RandomPolicy(Policy):
     @override
-    def __call__(
-        self,
-        observation: Observation,
-        key: PRNGKey | None = None,
-        *,
-        inference: bool = True,
-    ) -> Array:
-        del key, inference
+    def __call__(self, observation: Observation, key: PRNGKey | None = None) -> Array:
+        del key
         return observation.action_mask / observation.action_mask.sum()

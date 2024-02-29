@@ -12,20 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import override
 
 import equinox as eqx
 import jax
-import jax.numpy as jnp
 from chex import PRNGKey
 from jaxtyping import Array
 
+from rl2048.critics.base import Critic
 from rl2048.embedders import Embedder
-from rl2048.jumanji import Observation
-from rl2048.policies.base import Policy
+from rl2048.jumanji import Board
 
 
-class DeepPolicy(Policy):
+class DeepCritic(Critic):
     dropout: eqx.nn.Dropout
     embedder: Embedder
     network: eqx.nn.Sequential
@@ -38,13 +36,12 @@ class DeepPolicy(Policy):
             [
                 eqx.nn.Linear(self.embedder.n_features, 32, key=linear_key_1),
                 eqx.nn.Lambda(jax.nn.relu),  # type: ignore[call-arg]
-                eqx.nn.Linear(32, 4, key=linear_key_2),
+                eqx.nn.Linear(32, 1, key=linear_key_2),
+                eqx.nn.Lambda(jax.nn.relu),  # type: ignore[call-arg]
             ]
         )
 
-    @override
-    def __call__(self, observation: Observation, key: PRNGKey | None = None) -> Array:
-        x = self.embedder(observation.board)
+    def __call__(self, board: Board, key: PRNGKey | None = None) -> Array:
+        x = self.embedder(board)
         x = self.dropout(x, key=key)
-        x = self.network(x)
-        return jax.nn.softmax(jnp.where(observation.action_mask, x, -jnp.inf))
+        return self.network(x)[0]

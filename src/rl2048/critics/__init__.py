@@ -12,19 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import override
+from rl2048.critics.base import Critic
+from rl2048.critics.deep import DeepCritic
 
-import jax.numpy as jnp
-from chex import PRNGKey
-from jaxtyping import Array
-
-from rl2048.jumanji import Observation
-from rl2048.policies.base import Policy
-
-
-class NaivePolicy(Policy):
-    @override
-    def __call__(self, observation: Observation, key: PRNGKey | None = None) -> Array:
-        del key
-        action = jnp.argmax(observation.action_mask * jnp.array((4, 3, 2, 1)))
-        return jnp.zeros((4,)).at[action].set(1)
+__all__ = ["Critic", "DeepCritic"]

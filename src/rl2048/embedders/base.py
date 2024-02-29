@@ -12,19 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import override
+from abc import abstractmethod
 
-import jax.numpy as jnp
+import equinox as eqx
 from chex import PRNGKey
 from jaxtyping import Array
 
-from rl2048.jumanji import Observation
-from rl2048.policies.base import Policy
+from rl2048.jumanji import Board
 
 
-class NaivePolicy(Policy):
-    @override
-    def __call__(self, observation: Observation, key: PRNGKey | None = None) -> Array:
-        del key
-        action = jnp.argmax(observation.action_mask * jnp.array((4, 3, 2, 1)))
-        return jnp.zeros((4,)).at[action].set(1)
+class Embedder(eqx.Module):
+    n_features: int
+
+    @abstractmethod
+    def __call__(self, board: Board, key: PRNGKey | None = None) -> Array:
+        raise NotImplementedError

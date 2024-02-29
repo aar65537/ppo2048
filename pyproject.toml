@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rl2048"
 version = "0.0.1"
-dependencies = ["equinox", "jumanji", "optax"]
+dependencies = ["equinox", "jumanji", "optax", "rlax"]
 requires-python = ">=3.12"
 authors = [{ name = "Avi Revah", email = "avraham.a.revah@gmail.com" }]
 description = "Proximal policy optimization agents to play logic game 2048."
@@ -30,7 +30,7 @@ warn_return_any = true
 warn_unused_ignores = false
 
 [[tool.mypy.overrides]]
-module = ["optax.*"]
+module = ["optax.*", "rlax.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -43,7 +43,7 @@ ignore = ["ANN401", "COM812", "PD008", "UP040", "D"]
 
 [tool.ruff.lint.per-file-ignores]
 "local/*" = ["CPY", "ERA001", "F401", "T201", "F841"]
-"tests/*" = ["FBT001", "S101", "SLF001"]
+"tests/*" = ["FBT001", "PLR0913", "PLR0917", "PLR2004", "S101", "SLF001"]
 
 [tool.ruff.lint.flake8-copyright]
 author = "the rl2048 Authors"

@@ -16,6 +16,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 from chex import PRNGKey
+from optax import GradientTransformation, adam
 from rl2048.jumanji import Board, Game2048, Observation
 
 
@@ -38,3 +39,13 @@ def board() -> Board:
 def observation(env: Game2048, board: Board) -> Observation:
     action_mask = env._get_action_mask(board)
     return Observation(board, action_mask)
+
+
+@pytest.fixture()
+def n_epochs() -> int:
+    return 10
+
+
+@pytest.fixture()
+def optim() -> GradientTransformation:
+    return adam(0.01)
