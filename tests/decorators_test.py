@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-from functools import partial
 from typing import Any
 
 import chex
@@ -43,18 +42,18 @@ class CoinCounter(eqx.Module):
         self.object = object()
 
     @eqx.filter_jit
-    @partial(mutates, "n_coins,total")
+    @mutates("n_coins,total")
     def count(self, coin: Array) -> tuple[tuple[Array, Array]]:
         return ((self.n_coins + 1, self.total + coin),)
 
     @eqx.filter_jit
-    @partial(mutates, "object")
+    @mutates("object")
     def new_object(self) -> tuple[tuple[Any]]:
         del self
         return ((object(),),)
 
     @eqx.filter_jit
-    @partial(mutates, "key,n_coins,total", outputs=1)
+    @mutates("key,n_coins,total")
     def count_random(self) -> tuple[tuple[Array, Array, Array], Array]:
         next_key, rand_key = jax.random.split(self.key)
         rand = jax.random.randint(rand_key, (), 1, 10**6)
@@ -73,7 +72,6 @@ def test_count(counter: CoinCounter, jit: bool) -> None:
             (counter,) = counter.count(jnp.asarray(coin))
             assert counter.n_coins == coin
             assert counter.total == (coin * (coin + 1)) // 2
-        reveal_type(counter.count)
 
         count = eqx.filter_jit(chex.assert_max_traces(counter.__class__.count, 1))
         chex.clear_trace_counter()
