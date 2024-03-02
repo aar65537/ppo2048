@@ -43,11 +43,12 @@ class T_K_Protocol(Protocol):
 T_K = TypeVar("T_K", bound=T_K_Protocol)
 
 
-PureFn_: TypeAlias = Callable[Concatenate[T, In], PyTree]
-PureFn_K: TypeAlias = Callable[Concatenate[T_K, PRNGKey, In], PyTree | None]
-PureFn_O: TypeAlias = Callable[Concatenate[T, In], tuple[PyTree, *Out]]
+Update: TypeAlias = dict[str, PyTree]
+PureFn_: TypeAlias = Callable[Concatenate[T, In], Update]
+PureFn_K: TypeAlias = Callable[Concatenate[T_K, PRNGKey, In], Update | None]
+PureFn_O: TypeAlias = Callable[Concatenate[T, In], tuple[Update, *Out]]
 PureFn_KO: TypeAlias = Callable[
-    Concatenate[T_K, PRNGKey, In], tuple[PyTree | None, *Out]
+    Concatenate[T_K, PRNGKey, In], tuple[Update | None, *Out]
 ]
 ImpureFn: TypeAlias = Callable[Concatenate[T, In], T]
 ImpureFn_K: TypeAlias = ImpureFn[T_K, In]
