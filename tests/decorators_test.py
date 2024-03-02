@@ -20,7 +20,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import pytest
-from chex import PRNGKey
+from chex import ArrayTree, PRNGKey
 from jaxtyping import Array
 from rl2048.decorators import mutates
 
@@ -43,23 +43,27 @@ class CoinCounter(eqx.Module):
 
     @eqx.filter_jit
     @mutates("n_coins,total")
-    def count(self, coin: Array) -> dict[str, Array]:
+    def count(self, coin: Array) -> dict[str, ArrayTree]:
+        """Count a coin."""
         return {"n_coins": self.n_coins + 1, "total": self.total + coin}
 
     @eqx.filter_jit
     @mutates("object")
     def new_object(self) -> dict[str, Any]:
+        """Get new object."""
         del self
         return {"object": object()}
 
     @eqx.filter_jit
     @mutates(key=True)
     def next_key(self, key: PRNGKey) -> None:
+        """Increment key."""
         del self, key
 
     @eqx.filter_jit
     @mutates("total,n_coins", out=True)
-    def count_and_get(self, coin: Array) -> tuple[dict[str, Array], Array]:
+    def count_and_get(self, coin: Array) -> tuple[dict[str, ArrayTree], Array]:
+        """Count coin and return total."""
         new_total = self.total + coin
         return {"n_coins": self.n_coins + 1, "total": new_total}, new_total
 
@@ -67,7 +71,8 @@ class CoinCounter(eqx.Module):
     @mutates("n_coins,total", key=True, out=True)
     def count_and_rand(
         self, key: PRNGKey, coin: Array
-    ) -> tuple[dict[str, Array], Array]:
+    ) -> tuple[dict[str, ArrayTree], Array]:
+        """Count coint and return random int."""
         rand = jax.random.randint(key, (), 1, 10**6)
         return {"n_coins": self.n_coins + 1, "total": self.total + coin}, rand
 
@@ -77,7 +82,7 @@ def counter() -> CoinCounter:
     return CoinCounter()
 
 
-def test_count(counter: CoinCounter, jit: bool) -> None:
+def test_mutates(counter: CoinCounter, jit: bool) -> None:
     with chex.fake_jit(not jit):
         for coin in range(1, 10):
             counter = counter.count(jnp.asarray(coin))
@@ -95,7 +100,7 @@ def test_count(counter: CoinCounter, jit: bool) -> None:
             assert counter.total == (coin * (coin + 1)) // 2
 
 
-def test_new_object(counter: CoinCounter, jit: bool) -> None:
+def test_mutates__object(counter: CoinCounter, jit: bool) -> None:
     with chex.fake_jit(not jit):
         prev_object = counter.object
         counter = counter.new_object()
@@ -115,7 +120,7 @@ def test_new_object(counter: CoinCounter, jit: bool) -> None:
             new_object(counter)
 
 
-def test_increment_key(counter: CoinCounter, jit: bool) -> None:
+def test_mutates__with_key(counter: CoinCounter, jit: bool) -> None:
     with chex.fake_jit(not jit):
         last_key = counter.key
         for _ in range(1, 10):
@@ -134,7 +139,7 @@ def test_increment_key(counter: CoinCounter, jit: bool) -> None:
             last_key = counter.key
 
 
-def test_count_and_get(counter: CoinCounter, jit: bool) -> None:
+def test_mutates__with_output(counter: CoinCounter, jit: bool) -> None:
     with chex.fake_jit(not jit):
         for coin in range(1, 10):
             counter, total = counter.count_and_get(jnp.asarray(coin))
@@ -155,7 +160,7 @@ def test_count_and_get(counter: CoinCounter, jit: bool) -> None:
             assert total == (coin * (coin + 1)) // 2
 
 
-def test_count_random(counter: CoinCounter, jit: bool) -> None:
+def test_mutates__with_key_and_output(counter: CoinCounter, jit: bool) -> None:
     with chex.fake_jit(not jit):
         last_random = None
         for coin in range(1, 10):

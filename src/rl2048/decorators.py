@@ -28,8 +28,7 @@ from typing import (
 
 import equinox as eqx
 import jax
-from chex import PRNGKey
-from jaxtyping import PyTree
+from chex import ArrayTree, PRNGKey
 
 T = TypeVar("T")
 In = ParamSpec("In")
@@ -43,7 +42,7 @@ class T_K_Protocol(Protocol):
 T_K = TypeVar("T_K", bound=T_K_Protocol)
 
 
-Update: TypeAlias = dict[str, PyTree]
+Update: TypeAlias = dict[str, ArrayTree]
 PureFn_: TypeAlias = Callable[Concatenate[T, In], Update]
 PureFn_K: TypeAlias = Callable[Concatenate[T_K, PRNGKey, In], Update | None]
 PureFn_O: TypeAlias = Callable[Concatenate[T, In], tuple[Update, *Out]]
@@ -128,7 +127,7 @@ def mutates(
         return impure_fn
 
     def decorator_k(pure_fn: PureFn_K[T_K, In]) -> ImpureFn[T_K, In]:
-        # @wraps(pure_fn)
+        @wraps(pure_fn)
         def impure_fn(pytree: T_K, *args: In.args, **kwargs: In.kwargs) -> T_K:
             next_key, sub_key = jax.random.split(pytree.key)
             updates = pure_fn(pytree, sub_key, *args, **kwargs)
@@ -137,6 +136,7 @@ def mutates(
             updates_flat = _flatten_updates(updates, attr_names)
             return eqx.tree_at(where_fn, pytree, updates_flat)  # type: ignore[no-any-return]
 
+        del impure_fn.__wrapped__  # type: ignore[attr-defined]
         return impure_fn
 
     def decorator_o(pure_fn: PureFn_O[T, In, *Out]) -> ImpureFn_O[T, In, *Out]:
@@ -149,7 +149,7 @@ def mutates(
         return impure_fn
 
     def decorator_ko(pure_fn: PureFn_KO[T_K, In, *Out]) -> ImpureFn_O[T_K, In, *Out]:
-        # @wraps(pure_fn)
+        @wraps(pure_fn)
         def impure_fn(
             pytree: T_K, *args: In.args, **kwargs: In.kwargs
         ) -> tuple[T_K, *Out]:
@@ -160,6 +160,7 @@ def mutates(
             updates_flat = _flatten_updates(updates, attr_names)
             return (eqx.tree_at(where_fn, pytree, updates_flat), *outputs)  # type: ignore[return-value]
 
+        del impure_fn.__wrapped__  # type: ignore[attr-defined]
         return impure_fn
 
     match key, out:
@@ -185,5 +186,7 @@ def _make_attr_names(where: str | None, *, key: bool) -> list[str]:
     return ["key", *attr_names] if key else attr_names
 
 
-def _flatten_updates(updates: dict[str, PyTree], attr_names: list[str]) -> list[PyTree]:
+def _flatten_updates(
+    updates: dict[str, ArrayTree], attr_names: list[str]
+) -> list[ArrayTree]:
     return [updates[name] for name in attr_names]
