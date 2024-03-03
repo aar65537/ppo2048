@@ -15,9 +15,9 @@ from functools import partial
 from typing import TypeVar
 
 import jax
-from jaxtyping import Array, PyTree
+from jaxtyping import Array
 
-T = TypeVar("T", bound="PyTree")
+T = TypeVar("T")
 
 
 def _leaf_select(cond: Array, x: T, y: T) -> T:
