@@ -20,7 +20,7 @@ import jax.numpy as jnp
 from chex import PRNGKey
 from jaxtyping import Array, PyTree
 
-from rl2048.jumanji import State, StepType
+from rl2048.game import State, StepType
 
 if TYPE_CHECKING:
     from rl2048.agents.base import Agent

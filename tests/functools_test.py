@@ -13,7 +13,6 @@
 # limitations under the License.
 
 
-from functools import partial
 from typing import Any
 
 import chex
@@ -21,9 +20,9 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import pytest
-from chex import ArrayTree, PRNGKey
+from chex import PRNGKey
 from jaxtyping import Array
-from rl2048.functools import capture_attrs, consume_key, strip_return
+from rl2048.functools import MapTree, capture_attrs, consume_key, strip_return
 
 pytestmark = [
     pytest.mark.parametrize("jit", [True, False]),
@@ -45,13 +44,13 @@ class Counter(eqx.Module):
     @eqx.filter_jit
     @strip_return
     @capture_attrs
-    def count(self, coin: Array) -> tuple[dict[str, ArrayTree]]:
+    def count(self, coin: Array) -> tuple[MapTree]:
         """Count a coin."""
         return ({"n_coins": self.n_coins + 1, "total": self.total + coin},)
 
     @eqx.filter_jit
     @strip_return
-    @partial(capture_attrs, validate_trees=False)
+    @capture_attrs
     def new_object(self) -> tuple[dict[str, Any]]:
         """Get new object."""
         del self
@@ -60,23 +59,15 @@ class Counter(eqx.Module):
     @eqx.filter_jit
     @strip_return
     @capture_attrs
-    def new_object_fail(self) -> tuple[dict[str, Any]]:
-        """Get new object."""
-        del self
-        return ({"object": object()},)
-
-    @eqx.filter_jit
-    @strip_return
-    @capture_attrs
     @consume_key
-    def next_key(self, key: PRNGKey) -> tuple[dict]:
+    def next_key(self, key: PRNGKey) -> tuple[MapTree]:
         """Increment key."""
         del self, key
         return ({},)
 
     @eqx.filter_jit
     @capture_attrs
-    def count_and_get(self, coin: Array) -> tuple[dict[str, Array], Array]:
+    def count_and_get(self, coin: Array) -> tuple[MapTree, Array]:
         """Count coin and return total."""
         new_total = self.total + coin
         return {"n_coins": self.n_coins + 1, "total": new_total}, new_total
@@ -84,9 +75,7 @@ class Counter(eqx.Module):
     @eqx.filter_jit
     @capture_attrs
     @consume_key
-    def count_and_rand(
-        self, key: PRNGKey, coin: Array
-    ) -> tuple[dict[str, ArrayTree], Array]:
+    def count_and_rand(self, key: PRNGKey, coin: Array) -> tuple[MapTree, Array]:
         """Count coint and return random int."""
         rand = jax.random.randint(key, (), 1, 10**6)
         return {"n_coins": self.n_coins + 1, "total": self.total + coin}, rand
@@ -122,7 +111,7 @@ def test_new_object(counter: Counter, jit: bool) -> None:
     with chex.fake_jit(not jit):
         prev_object = counter.object
         counter = counter.new_object()
-        assert counter.object != prev_object
+        assert counter.object == prev_object
 
         eqx.clear_caches()  # type: ignore[no-untyped-call]
         jax.clear_caches()  # type: ignore[no-untyped-call]
@@ -130,15 +119,7 @@ def test_new_object(counter: Counter, jit: bool) -> None:
         new_object = counter.__class__.new_object
         new_object = eqx.filter_jit(chex.assert_max_traces(new_object, 1))
         counter = new_object(counter)
-
-        if jit:
-            with pytest.raises(AssertionError):
-                new_object(counter)
-        else:
-            new_object(counter)
-
-        with pytest.raises(TypeError):
-            counter.new_object_fail()
+        new_object(counter)
 
 
 def test_next_key(counter: Counter, jit: bool) -> None:

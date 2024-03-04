@@ -16,8 +16,9 @@ import jax
 import jax.numpy as jnp
 import pytest
 from chex import PRNGKey
+from jaxtyping import Array
 from optax import GradientTransformation, adam
-from rl2048.jumanji import Board, Game2048, Observation
+from rl2048.game import Game, Observation
 
 
 @pytest.fixture()
@@ -26,18 +27,18 @@ def key() -> PRNGKey:
 
 
 @pytest.fixture()
-def env() -> Game2048:
-    return Game2048()
+def env(key: PRNGKey) -> Game:
+    return Game(key)
 
 
 @pytest.fixture()
-def board() -> Board:
+def board() -> Array:
     return jnp.array([[1, 1, 2, 2], [3, 4, 0, 0], [0, 2, 0, 0], [0, 5, 0, 0]])
 
 
 @pytest.fixture()
-def observation(env: Game2048, board: Board) -> Observation:
-    action_mask = env._get_action_mask(board)
+def observation(env: Game, board: Array) -> Observation:
+    action_mask = jnp.asarray(env._env._get_action_mask(board))
     return Observation(board, action_mask)
 
 

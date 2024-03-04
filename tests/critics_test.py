@@ -18,9 +18,9 @@ import equinox as eqx
 import jax
 import pytest
 from chex import PRNGKey
+from jaxtyping import Array
 from rl2048.critics import Critic, DeepCritic
 from rl2048.embedders import DeepEmbedder
-from rl2048.jumanji import Board
 
 
 class CriticType(Enum):
@@ -43,7 +43,7 @@ pytestmark = [
 
 
 def test__call__(
-    key: PRNGKey, board: Board, critic_type: CriticType, jit: bool
+    key: PRNGKey, board: Array, critic_type: CriticType, jit: bool
 ) -> None:
     init_key, call_key = jax.random.split(key)
     del key

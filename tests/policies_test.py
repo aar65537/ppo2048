@@ -20,8 +20,9 @@ import jax
 import jax.numpy as jnp
 import pytest
 from chex import PRNGKey
+from jaxtyping import Array
 from rl2048.embedders import DeepEmbedder
-from rl2048.jumanji import Board, Observation
+from rl2048.game import Observation
 from rl2048.policies import DeepPolicy, NaivePolicy, Policy, RandomPolicy
 
 
@@ -53,7 +54,7 @@ pytestmark = [
 
 @pytest.mark.parametrize("n_actions", [0, 1, 2, 3])
 def test__call__(
-    key: PRNGKey, board: Board, policy_type: PolicyType, n_actions: int, jit: bool
+    key: PRNGKey, board: Array, policy_type: PolicyType, n_actions: int, jit: bool
 ) -> None:
     init_key, call_key = jax.random.split(key)
     del key

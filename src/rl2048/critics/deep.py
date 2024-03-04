@@ -20,7 +20,6 @@ from jaxtyping import Array
 
 from rl2048.critics.base import Critic
 from rl2048.embedders import Embedder
-from rl2048.jumanji import Board
 
 
 class DeepCritic(Critic):
@@ -41,7 +40,7 @@ class DeepCritic(Critic):
             ]
         )
 
-    def __call__(self, board: Board, key: PRNGKey | None = None) -> Array:
+    def __call__(self, board: Array, key: PRNGKey | None = None) -> Array:
         x = self.embedder(board)
         x = self.dropout(x, key=key)
         return self.network(x)[0]

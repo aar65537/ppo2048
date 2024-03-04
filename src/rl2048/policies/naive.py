@@ -18,7 +18,7 @@ import jax.numpy as jnp
 from chex import PRNGKey
 from jaxtyping import Array
 
-from rl2048.jumanji import Observation
+from rl2048.game import Observation
 from rl2048.policies.base import Policy
 
 

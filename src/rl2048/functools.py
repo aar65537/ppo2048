@@ -12,90 +12,119 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Callable, Mapping
-from functools import wraps
-from typing import Concatenate, ParamSpec, TypeAlias, TypeVar, TypeVarTuple
+from collections.abc import Callable, Iterable, Mapping
+from functools import partial, wraps
+from typing import Any, Concatenate, ParamSpec, TypeAlias, TypeVar, TypeVarTuple
 
 import equinox as eqx
 import jax
-from chex import ArrayTree, PRNGKey
+from chex import PRNGKey
+from jaxtyping import Array
 
-T = TypeVar("T", bound=eqx.Module)
-U = TypeVar("U", bound=ArrayTree)
+Leaf = Array | eqx.Module
+Node = Leaf | Iterable["Node"] | Mapping[str, "Node"]
+FlatTree: TypeAlias = Iterable[Node]
+MapTree: TypeAlias = Mapping[str, Node]
+
+T = TypeVar("T")
 P = ParamSpec("P")
 Ts = TypeVarTuple("Ts")
+ModuleVar = TypeVar("ModuleVar", bound=eqx.Module)
+NodeVar = TypeVar("NodeVar", bound=Node)
 
-MapTree: TypeAlias = Mapping[str, ArrayTree]
-FlatTree: TypeAlias = list[ArrayTree]
 
-
-def strip_return(
-    fn: Callable[Concatenate[T, P], tuple[T, *Ts]],
-) -> Callable[Concatenate[T, P], T]:
+def auto_vmap(
+    fn: Callable[Concatenate[ModuleVar, P], T],
+    *args: Any,
+    batch_shape: str = "batch_shape",
+    **kwargs: Any,
+) -> Callable[Concatenate[ModuleVar, P], T]:
     @wraps(fn)
-    def inner(module: T, *args: P.args, **kwargs: P.kwargs) -> T:
-        return fn(module, *args, **kwargs)[0]
+    def inner(module: ModuleVar, *in_args: P.args, **in_kwargs: P.kwargs) -> T:
+        vmap_fn = fn
+        for _ in getattr(module, batch_shape):
+            vmap_fn = eqx.filter_vmap(vmap_fn, *args, **kwargs)
+        return vmap_fn(module, *in_args, **in_kwargs)  # type: ignore[no-any-return]
+
+    return inner
+
+
+def strip_return(fn: Callable[P, tuple[T, *Ts]]) -> Callable[P, T]:
+    @wraps(fn)
+    def inner(*args: P.args, **kwargs: P.kwargs) -> T:
+        return fn(*args, **kwargs)[0]
 
     return inner
 
 
 def capture_attrs(
-    fn: Callable[Concatenate[T, P], tuple[MapTree, *Ts]], *, validate_trees: bool = True
-) -> Callable[Concatenate[T, P], tuple[T, *Ts]]:
+    fn: Callable[Concatenate[ModuleVar, P], tuple[MapTree, *Ts]],
+) -> Callable[Concatenate[ModuleVar, P], tuple[ModuleVar, *Ts]]:
     @wraps(fn)
-    def inner(module: T, *args: P.args, **kwargs: P.kwargs) -> tuple[T, *Ts]:
-        updates, *outputs = fn(module, *args, **kwargs)
-        updates_flat = list(updates.values())
+    def inner(
+        module: ModuleVar, *args: P.args, **kwargs: P.kwargs
+    ) -> tuple[ModuleVar, *Ts]:
+        update, *output = fn(module, *args, **kwargs)
 
-        def where_fn(_module: T) -> FlatTree:
-            return [getattr(_module, name) for name in updates]
+        def where_fn(_module: ModuleVar) -> FlatTree:
+            return [getattr(_module, attr) for attr in update]
 
-        if validate_trees:
-            _validate_tree(updates_flat, caller=fn.__qualname__)
-            _validate_tree(where_fn(module), caller=fn.__qualname__)
-
-        new_module: T = eqx.tree_at(where_fn, module, updates_flat)
-        return (new_module, *outputs)  # type: ignore[return-value]
+        dynamic_update = eqx.filter(list(update.values()), eqx.is_array)
+        dynamic_module, static_module = eqx.partition(module, eqx.is_array)
+        dynamic_new_module = eqx.tree_at(where_fn, dynamic_module, dynamic_update)
+        new_module = eqx.combine(dynamic_new_module, static_module)
+        return (new_module, *output)  # type: ignore[return-value]
 
     return inner
 
 
 def consume_attr(
-    fn: Callable[Concatenate[T, U, P], tuple[MapTree, *Ts]],
+    fn: Callable[Concatenate[ModuleVar, NodeVar, P], tuple[MapTree, *Ts]],
     *,
-    attr_name: str,
-    split_fn: Callable[[U], tuple[U, U]],
-) -> Callable[Concatenate[T, P], tuple[MapTree, *Ts]]:
+    attr: str,
+    split_fn: Callable[[ModuleVar], tuple[NodeVar, NodeVar]],
+) -> Callable[Concatenate[ModuleVar, P], tuple[MapTree, *Ts]]:
     @wraps(fn)
-    def inner(module: T, *args: P.args, **kwargs: P.kwargs) -> tuple[MapTree, *Ts]:
-        next_attr, sub_attr = split_fn(getattr(module, attr_name))
-        updates, *outputs = fn(module, sub_attr, *args, **kwargs)
-        updates = {name: value for name, value in updates.items() if name != attr_name}
-        updates = {attr_name: next_attr, **updates}
-        return (updates, *outputs)  # type: ignore[return-value]
+    def inner(
+        module: ModuleVar, *args: P.args, **kwargs: P.kwargs
+    ) -> tuple[MapTree, *Ts]:
+        next_attr, sub_attr = split_fn(module)
+        update, *output = fn(module, sub_attr, *args, **kwargs)
+        if attr in update:
+            msg = (
+                f"Update from '{fn.__qualname__}' already contains "
+                f"attribute '{attr}'."
+            )
+            raise ValueError(msg)
+        update = {attr: next_attr, **update}
+        return (update, *output)  # type: ignore[return-value]
 
     del inner.__wrapped__  # type: ignore[attr-defined]
     return inner
 
 
 def consume_key(
-    fn: Callable[Concatenate[T, PRNGKey, P], tuple[MapTree, *Ts]],
+    fn: Callable[Concatenate[ModuleVar, PRNGKey, P], tuple[MapTree, *Ts]],
     *,
-    attr_name: str = "key",
-) -> Callable[Concatenate[T, P], tuple[MapTree, *Ts]]:
-    return consume_attr(fn, attr_name=attr_name, split_fn=_split_key)
+    key: str = "key",
+) -> Callable[Concatenate[ModuleVar, P], tuple[MapTree, *Ts]]:
+    split_key = partial(_split_key, key=key)
+    return consume_attr(fn, attr=key, split_fn=split_key)
 
 
-def _split_key(key: PRNGKey) -> tuple[PRNGKey, PRNGKey]:
-    return jax.random.split(key)  # type: ignore[return-value]
+def _split_key(module: eqx.Module, key: str) -> tuple[PRNGKey, PRNGKey]:
+    old_key: PRNGKey = getattr(module, key)
+    del module
 
+    split = jax.random.split
+    for _ in old_key.shape[:-1]:
+        split = jax.vmap(jax.random.split)
 
-def _validate_tree(tree: FlatTree, caller: str | None = None) -> None:
-    if all(eqx.is_array(leaf) for leaf in jax.tree_flatten(tree)[0]):
-        return
-    msg = (
-        f"Attributes captured with {capture_attrs.__qualname__} must be ArrayTrees."
-        if caller is None
-        else f"Attributes captured from {caller} must be ArrayTrees."
-    )
-    raise TypeError(msg)
+    next_keys = split(old_key)
+    del old_key
+
+    next_key = next_keys.take(0, -2)
+    sub_key = next_keys.take(1, -2)
+    del next_keys
+
+    return (next_key, sub_key)

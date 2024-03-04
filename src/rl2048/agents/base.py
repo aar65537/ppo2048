@@ -36,7 +36,7 @@ from rl2048.agents.types import (
     Rollout,
     TrainCarry,
 )
-from rl2048.jumanji import Game2048, State, TimeStep
+from rl2048.game import Game, State
 from rl2048.policies import Policy
 from rl2048.utils import tree_select
 
@@ -44,7 +44,7 @@ from rl2048.utils import tree_select
 class Agent(eqx.Module):
     key: PRNGKey
     batch_size: int | None
-    env: Game2048
+    env: Game
     n_epochs: int
     optim: GradientTransformation | None
     opt_state: OptState | None
@@ -56,7 +56,7 @@ class Agent(eqx.Module):
         key: PRNGKey,
         *,
         batch_size: int | None,
-        env: Game2048,
+        env: Game,
         optim: GradientTransformation | None,
         rollout_size: int,
         n_epochs: int,
@@ -242,7 +242,7 @@ class Agent(eqx.Module):
         next_carry = TrainCarry(next_curr_params, next_best_params)
         return next_carry, report
 
-    def _reset(self, key: PRNGKey) -> tuple[State, TimeStep]:
+    def _reset(self, key: PRNGKey) -> tuple[State, Any]:
         reset = self.env.reset
         if self.batch_size is not None:
             key = jax.random.split(key, self.batch_size)

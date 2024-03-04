@@ -18,12 +18,10 @@ import equinox as eqx
 from chex import PRNGKey
 from jaxtyping import Array
 
-from rl2048.jumanji import Board
-
 
 class Embedder(eqx.Module):
     n_features: int
 
     @abstractmethod
-    def __call__(self, board: Board, key: PRNGKey | None = None) -> Array:
+    def __call__(self, board: Array, key: PRNGKey | None = None) -> Array:
         raise NotImplementedError

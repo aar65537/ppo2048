@@ -18,8 +18,8 @@ import equinox as eqx
 import jax
 import pytest
 from chex import PRNGKey
+from jaxtyping import Array
 from rl2048.embedders import DeepEmbedder, Embedder
-from rl2048.jumanji import Board
 
 
 class EmbedderType(Enum):
@@ -41,7 +41,7 @@ pytestmark = [
 
 
 def test__call__(
-    key: PRNGKey, board: Board, embedder_type: EmbedderType, jit: bool
+    key: PRNGKey, board: Array, embedder_type: EmbedderType, jit: bool
 ) -> None:
     init_key, call_key = jax.random.split(key)
     del key

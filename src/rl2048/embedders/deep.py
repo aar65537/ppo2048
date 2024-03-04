@@ -20,7 +20,6 @@ from chex import PRNGKey
 from jaxtyping import Array
 
 from rl2048.embedders.base import Embedder
-from rl2048.jumanji import Board
 
 
 class DeepEmbedder(Embedder):
@@ -43,7 +42,7 @@ class DeepEmbedder(Embedder):
         board = jnp.zeros((board_size, board_size))
         self.n_features = self(board, call_key).shape[0]
 
-    def __call__(self, board: Board, key: PRNGKey | None = None) -> Array:
+    def __call__(self, board: Array, key: PRNGKey | None = None) -> Array:
         return self.network(
             jax.nn.one_hot(board, self.n_tiles, axis=0), key=key
         ).flatten()

@@ -28,7 +28,7 @@ from rl2048.actor_critic import ActorCritic
 from rl2048.agents.base import Agent
 from rl2048.agents.types import BackwardCarry, EpochReport, ForwardStep, Rollout
 from rl2048.critics import Critic
-from rl2048.jumanji import DEFAULT_ENV, Game2048, State
+from rl2048.game import DEFAULT_ENV, Game, State
 from rl2048.policies import Policy
 
 
@@ -43,7 +43,7 @@ class ActorCriticAgent(Agent):
         actor_critic: ActorCritic,
         *,
         batch_size: int | None = None,
-        env: Game2048 = DEFAULT_ENV,
+        env: Game = DEFAULT_ENV,
         gamma: float = 0.95,
         lamb: float = 0.99,
         n_epochs: int = 16,
