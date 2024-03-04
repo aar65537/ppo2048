@@ -19,54 +19,57 @@ from typing import Any, Concatenate, ParamSpec, TypeAlias, TypeVar, TypeVarTuple
 import equinox as eqx
 import jax
 from chex import PRNGKey
-from jaxtyping import Array
+from jaxtyping import PyTree
 
-Leaf = Array | eqx.Module
-Node = Leaf | Iterable["Node"] | Mapping[str, "Node"]
-FlatTree: TypeAlias = Iterable[Node]
-MapTree: TypeAlias = Mapping[str, Node]
+FlatTree: TypeAlias = Iterable[PyTree]
+MapTree: TypeAlias = Mapping[str, PyTree]
 
 T = TypeVar("T")
+U = TypeVar("U")
 P = ParamSpec("P")
 Ts = TypeVarTuple("Ts")
-ModuleVar = TypeVar("ModuleVar", bound=eqx.Module)
-NodeVar = TypeVar("NodeVar", bound=Node)
 
 
 def auto_vmap(
-    fn: Callable[Concatenate[ModuleVar, P], T],
-    *args: Any,
-    batch_shape: str = "batch_shape",
-    **kwargs: Any,
-) -> Callable[Concatenate[ModuleVar, P], T]:
+    shape_fn: Callable[..., tuple[int, ...]], **vmap_kwargs: Any
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    def decorator(fn: Callable[P, T]) -> Callable[P, T]:
+        @wraps(fn)
+        def inner(*args: P.args, **kwargs: P.kwargs) -> T:
+            vmap_fn = fn
+            for _ in shape_fn(*args, **kwargs):
+                vmap_fn = eqx.filter_vmap(vmap_fn, **vmap_kwargs)
+            return vmap_fn(*args, **kwargs)  # type: ignore[no-any-return]
+
+        return inner
+
+    return decorator
+
+
+def auto_vmap_key(
+    shape_fn: Callable[..., tuple[int, ...]], *, key: str = "key", **vmap_kwargs: Any
+) -> Callable[
+    [Callable[Concatenate[T, PRNGKey, P], tuple[MapTree, *Ts]]],
+    Callable[Concatenate[T, P], tuple[MapTree, *Ts]],
+]:
+    def decorator(
+        fn: Callable[Concatenate[T, PRNGKey, P], tuple[MapTree, *Ts]],
+    ) -> Callable[Concatenate[T, P], tuple[MapTree, *Ts]]:
+        auto_vmap_dec = auto_vmap(shape_fn, **vmap_kwargs)
+        split_key = partial(_split_key_auto_vmap, key=key, shape_fn=shape_fn)
+        return consume_attr(auto_vmap_dec(fn), update_attr=key, split_fn=split_key)
+
+    return decorator
+
+
+def capture_update(
+    fn: Callable[Concatenate[T, P], tuple[MapTree, *Ts]],
+) -> Callable[Concatenate[T, P], tuple[T, *Ts]]:
     @wraps(fn)
-    def inner(module: ModuleVar, *in_args: P.args, **in_kwargs: P.kwargs) -> T:
-        vmap_fn = fn
-        for _ in getattr(module, batch_shape):
-            vmap_fn = eqx.filter_vmap(vmap_fn, *args, **kwargs)
-        return vmap_fn(module, *in_args, **in_kwargs)  # type: ignore[no-any-return]
-
-    return inner
-
-
-def strip_return(fn: Callable[P, tuple[T, *Ts]]) -> Callable[P, T]:
-    @wraps(fn)
-    def inner(*args: P.args, **kwargs: P.kwargs) -> T:
-        return fn(*args, **kwargs)[0]
-
-    return inner
-
-
-def capture_attrs(
-    fn: Callable[Concatenate[ModuleVar, P], tuple[MapTree, *Ts]],
-) -> Callable[Concatenate[ModuleVar, P], tuple[ModuleVar, *Ts]]:
-    @wraps(fn)
-    def inner(
-        module: ModuleVar, *args: P.args, **kwargs: P.kwargs
-    ) -> tuple[ModuleVar, *Ts]:
+    def inner(module: T, *args: P.args, **kwargs: P.kwargs) -> tuple[T, *Ts]:
         update, *output = fn(module, *args, **kwargs)
 
-        def where_fn(_module: ModuleVar) -> FlatTree:
+        def where_fn(_module: T) -> FlatTree:
             return [getattr(_module, attr) for attr in update]
 
         dynamic_update = eqx.filter(list(update.values()), eqx.is_array)
@@ -79,24 +82,24 @@ def capture_attrs(
 
 
 def consume_attr(
-    fn: Callable[Concatenate[ModuleVar, NodeVar, P], tuple[MapTree, *Ts]],
+    fn: Callable[Concatenate[T, U, P], tuple[MapTree, *Ts]],
     *,
-    attr: str,
-    split_fn: Callable[[ModuleVar], tuple[NodeVar, NodeVar]],
-) -> Callable[Concatenate[ModuleVar, P], tuple[MapTree, *Ts]]:
+    update_attr: str,
+    split_fn: Callable[Concatenate[T, P], tuple[U, U]],
+) -> Callable[Concatenate[T, P], tuple[MapTree, *Ts]]:
     @wraps(fn)
-    def inner(
-        module: ModuleVar, *args: P.args, **kwargs: P.kwargs
-    ) -> tuple[MapTree, *Ts]:
-        next_attr, sub_attr = split_fn(module)
+    def inner(module: T, *args: P.args, **kwargs: P.kwargs) -> tuple[MapTree, *Ts]:
+        next_attr, sub_attr = split_fn(module, *args, **kwargs)
         update, *output = fn(module, sub_attr, *args, **kwargs)
-        if attr in update:
+
+        if update_attr in update:
             msg = (
                 f"Update from '{fn.__qualname__}' already contains "
-                f"attribute '{attr}'."
+                f"attribute '{update_attr}'."
             )
             raise ValueError(msg)
-        update = {attr: next_attr, **update}
+
+        update = {update_attr: next_attr, **update}
         return (update, *output)  # type: ignore[return-value]
 
     del inner.__wrapped__  # type: ignore[attr-defined]
@@ -104,22 +107,31 @@ def consume_attr(
 
 
 def consume_key(
-    fn: Callable[Concatenate[ModuleVar, PRNGKey, P], tuple[MapTree, *Ts]],
+    fn: Callable[Concatenate[T, PRNGKey, P], tuple[MapTree, *Ts]],
     *,
     key: str = "key",
-) -> Callable[Concatenate[ModuleVar, P], tuple[MapTree, *Ts]]:
+) -> Callable[Concatenate[T, P], tuple[MapTree, *Ts]]:
     split_key = partial(_split_key, key=key)
-    return consume_attr(fn, attr=key, split_fn=split_key)
+    return consume_attr(fn, update_attr=key, split_fn=split_key)
 
 
-def _split_key(module: eqx.Module, key: str) -> tuple[PRNGKey, PRNGKey]:
+def strip_output(fn: Callable[P, tuple[T, *Ts]]) -> Callable[P, T]:
+    @wraps(fn)
+    def inner(*args: P.args, **kwargs: P.kwargs) -> T:
+        return fn(*args, **kwargs)[0]
+
+    return inner
+
+
+def _split_key(
+    module: PyTree, *args: Any, key: str, **kwargs: Any
+) -> tuple[PRNGKey, PRNGKey]:
+    del args, kwargs
+
     old_key: PRNGKey = getattr(module, key)
-    del module
+    del key, module
 
-    split = jax.random.split
-    for _ in old_key.shape[:-1]:
-        split = jax.vmap(jax.random.split)
-
+    split = auto_vmap(lambda key: key.shape[:-1])(jax.random.split)
     next_keys = split(old_key)
     del old_key
 
@@ -128,3 +140,22 @@ def _split_key(module: eqx.Module, key: str) -> tuple[PRNGKey, PRNGKey]:
     del next_keys
 
     return (next_key, sub_key)
+
+
+def _split_key_auto_vmap(
+    module: PyTree,
+    *args: Any,
+    key: str,
+    shape_fn: Callable[..., tuple[int, ...]],
+    **kwargs: Any,
+) -> tuple[PRNGKey, PRNGKey]:
+    old_key = getattr(module, key)
+    del key
+
+    next_key, sub_key = jax.random.split(old_key)
+    del old_key
+
+    shape = shape_fn(module, *args, **kwargs)
+    del module, args, kwargs
+
+    return next_key, jax.random.split(sub_key, shape)

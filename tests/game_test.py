@@ -58,12 +58,16 @@ def test_reset(
             assert not jnp.equal(game.key, new_game.key).all()
             assert jnp.equal(game.step_count, 0).all()
             assert jnp.equal(new_game.step_count, 0).all()
+            game = new_game
 
 
 def test_step(game: Game, jit: bool) -> None:
     with chex.fake_jit(not jit):
-        for _ in range(10):
+        for i in range(10):
             action = jnp.ones(game.batch_shape, int)
-            new_game = game.step(action)
+            new_game, reward = game.step(action)
             assert not jnp.equal(game.key, new_game.key).all()
-            assert jnp.equal(game.step_count + 1, new_game.step_count).all()
+            assert jnp.equal(game.step_count, i).all()
+            assert jnp.equal(new_game.step_count, i + 1).all()
+            assert jnp.equal(reward, new_game.score - game.score).all()
+            game = new_game

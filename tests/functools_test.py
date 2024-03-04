@@ -22,7 +22,7 @@ import jax.numpy as jnp
 import pytest
 from chex import PRNGKey
 from jaxtyping import Array
-from rl2048.functools import MapTree, capture_attrs, consume_key, strip_return
+from rl2048.functools import MapTree, capture_update, consume_key, strip_output
 
 pytestmark = [
     pytest.mark.parametrize("jit", [True, False]),
@@ -42,23 +42,23 @@ class Counter(eqx.Module):
         self.object = object()
 
     @eqx.filter_jit
-    @strip_return
-    @capture_attrs
+    @strip_output
+    @capture_update
     def count(self, coin: Array) -> tuple[MapTree]:
         """Count a coin."""
         return ({"n_coins": self.n_coins + 1, "total": self.total + coin},)
 
     @eqx.filter_jit
-    @strip_return
-    @capture_attrs
+    @strip_output
+    @capture_update
     def new_object(self) -> tuple[dict[str, Any]]:
         """Get new object."""
         del self
         return ({"object": object()},)
 
     @eqx.filter_jit
-    @strip_return
-    @capture_attrs
+    @strip_output
+    @capture_update
     @consume_key
     def next_key(self, key: PRNGKey) -> tuple[MapTree]:
         """Increment key."""
@@ -66,14 +66,14 @@ class Counter(eqx.Module):
         return ({},)
 
     @eqx.filter_jit
-    @capture_attrs
+    @capture_update
     def count_and_get(self, coin: Array) -> tuple[MapTree, Array]:
         """Count coin and return total."""
         new_total = self.total + coin
         return {"n_coins": self.n_coins + 1, "total": new_total}, new_total
 
     @eqx.filter_jit
-    @capture_attrs
+    @capture_update
     @consume_key
     def count_and_rand(self, key: PRNGKey, coin: Array) -> tuple[MapTree, Array]:
         """Count coint and return random int."""
@@ -168,7 +168,7 @@ def test_count_and_get(counter: Counter, jit: bool) -> None:
                 count_and_get(Counter(), jnp.asarray(coin))
 
 
-def test_cound_and_rand(counter: Counter, jit: bool) -> None:
+def test_count_and_rand(counter: Counter, jit: bool) -> None:
     with chex.fake_jit(not jit):
         last_random = None
         for coin in range(1, 10):
