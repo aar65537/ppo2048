@@ -13,45 +13,11 @@
 # limitations under the License.
 
 import chex
-import jax
 import jax.numpy as jnp
-import pytest
-from chex import PRNGKey
 from rl2048.game import Game
 
 
-@pytest.fixture(params=[True, False], ids=["jit", "no jit"])
-def jit(request: pytest.FixtureRequest) -> bool:
-    return request.param  # type: ignore[no-any-return]
-
-
-@pytest.fixture(params=[0, 1], ids=["seed=0", "seed=1"])
-def key(request: pytest.FixtureRequest) -> PRNGKey:
-    return jax.random.PRNGKey(request.param)
-
-
-@pytest.fixture(
-    params=[None, (), (10,), (5, 3)],
-    ids=["shape=None", "shape=()", "shape=(10,)", "shape=(5,3)"],
-)
-def shape(request: pytest.FixtureRequest) -> tuple[int, ...] | None:
-    return request.param  # type: ignore[no-any-return]
-
-
-@pytest.fixture(params=[4, 5, 6], ids=["board=4", "board=5", "board=6"])
-def board_size(request: pytest.FixtureRequest) -> int:
-    return request.param  # type: ignore[no-any-return]
-
-
-@pytest.fixture()
-def game(key: PRNGKey, shape: tuple[int, ...], board_size: int) -> Game:
-    return Game(key=key, batch_shape=shape, board_size=board_size)
-
-
-def test_reset(
-    game: Game,
-    jit: bool,
-) -> None:
+def test_reset(game: Game, jit: bool) -> None:
     with chex.fake_jit(not jit):
         for _ in range(10):
             new_game = game.reset()
@@ -65,9 +31,11 @@ def test_step(game: Game, jit: bool) -> None:
     with chex.fake_jit(not jit):
         for i in range(10):
             action = jnp.ones(game.batch_shape, int)
-            new_game, reward = game.step(action)
+            new_game, reward, next_obs = game.step(action)
             assert not jnp.equal(game.key, new_game.key).all()
             assert jnp.equal(game.step_count, i).all()
             assert jnp.equal(new_game.step_count, i + 1).all()
             assert jnp.equal(reward, new_game.score - game.score).all()
+            assert jnp.equal(new_game.board, next_obs.board).all()
+            assert jnp.equal(new_game.action_mask, next_obs.action_mask).all()
             game = new_game

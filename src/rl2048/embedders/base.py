@@ -15,13 +15,26 @@
 from abc import abstractmethod
 
 import equinox as eqx
+import jax
+import oopax
 from chex import PRNGKey
 from jaxtyping import Array
 
+from rl2048.types import Observation
+
 
 class Embedder(eqx.Module):
-    n_features: int
+    key: eqx.AbstractVar[PRNGKey]
+    n_features: eqx.AbstractVar[int]
+
+    @eqx.filter_jit
+    @oopax.capture_update
+    @oopax.consume_key
+    def __call__(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
+        key = jax.random.split(key, obs.batch_shape)
+        call = oopax.auto_vmap(self._call, lambda key: key.shape[:-1])
+        return call(key, obs)
 
     @abstractmethod
-    def __call__(self, board: Array, key: PRNGKey | None = None) -> Array:
+    def _call(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
         raise NotImplementedError

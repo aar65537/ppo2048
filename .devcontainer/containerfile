@@ -1,22 +1,15 @@
-# GPU compatable development environment
-ARG PYTHON_VERSION
-FROM mcr.microsoft.com/devcontainers/python:${PYTHON_VERSION}-bookworm
+FROM cgr.dev/chainguard/wolfi-base
 
-# Install jax
-RUN python -m pip install --no-cache-dir "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+ARG version
+RUN apk add python-${version} py${version}-pip \
+    && python -m pip install --no-cache-dir "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
-# Install other python dependencies
-ARG WORKSPACE_FOLDER
-WORKDIR ${WORKSPACE_FOLDER}
-COPY pyproject.toml .
-RUN mkdir src && python -m pip install --no-cache-dir --upgrade -e ".[dash,dev,train]"
+RUN apk add git gnu-libiconv zsh \
+    && git clone https://github.com/ohmyzsh/ohmyzsh.git /root/.oh-my-zsh \
+    && git clone https://github.com/zsh-users/zsh-autosuggestions /root/.oh-my-zsh/custom/plugins/zsh-autosuggestions \
+    && git clone https://github.com/zsh-users/zsh-syntax-highlighting /root/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting \
+    && ln -s /usr/bin/gnu-iconv /usr/bin/iconv
 
-# Configure shell
+COPY .zshrc /root
+
 ENV SHELL /usr/bin/zsh
-WORKDIR /root
-RUN mkdir .oh-my-zsh/custom/plugins/dvc \
-    && dvc completion -s zsh >> .oh-my-zsh/custom/plugins/dvc/_dvc 
-COPY .devcontainer/.zshrc .
-
-# Set working dir
-WORKDIR ${WORKSPACE_FOLDER}

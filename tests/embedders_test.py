@@ -14,44 +14,34 @@
 
 from enum import Enum
 
-import equinox as eqx
-import jax
+import chex
+import jax.numpy as jnp
 import pytest
 from chex import PRNGKey
-from jaxtyping import Array
 from rl2048.embedders import DeepEmbedder, Embedder
+from rl2048.game import Game
 
 
 class EmbedderType(Enum):
     DEEP = DeepEmbedder
 
-    def create(self, key: PRNGKey) -> Embedder:
+    def create(self, key: PRNGKey, board_size: int) -> Embedder:
         match self:
             case EmbedderType.DEEP:
-                return DeepEmbedder(key)
+                return DeepEmbedder(key, board_size)
             case _:
                 msg = f"Policy type {self!r} not recognized."
                 raise ValueError(msg)
 
 
-pytestmark = [
-    pytest.mark.parametrize("jit", [True, False]),
-    pytest.mark.parametrize("embedder_type", list(EmbedderType)),
-]
+pytestmark = [pytest.mark.parametrize("embedder_type", list(EmbedderType))]
 
 
 def test__call__(
-    key: PRNGKey, board: Array, embedder_type: EmbedderType, jit: bool
+    key: PRNGKey, game: Game, embedder_type: EmbedderType, jit: bool
 ) -> None:
-    init_key, call_key = jax.random.split(key)
-    del key
-
-    embedder = embedder_type.create(init_key)
-    del init_key
-
-    call = embedder_type.value.__call__
-    call = eqx.filter_jit(call) if jit else call
-    embedding = call(embedder, board, call_key)
-    del call_key
-
-    assert embedding.shape == (embedder.n_features,)
+    with chex.fake_jit(not jit):
+        embedder = embedder_type.create(key, game.board_size)
+        new_embedder, embedding = embedder(game.observation)
+        assert jnp.logical_not(jnp.equal(embedder.key, new_embedder.key)).all()
+        assert embedding.shape == (*game.batch_shape, embedder.n_features)

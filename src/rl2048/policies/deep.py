@@ -17,23 +17,26 @@ from typing import override
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import oopax
 from chex import PRNGKey
 from jaxtyping import Array
 
 from rl2048.embedders import Embedder
-from rl2048.game import Observation
 from rl2048.policies.base import Policy
+from rl2048.types import Observation
 
 
 class DeepPolicy(Policy):
+    key: PRNGKey
     dropout: eqx.nn.Dropout
     embedder: Embedder
     network: eqx.nn.Sequential
 
     def __init__(self, key: PRNGKey, embedder: Embedder) -> None:
+        self.key, linear_key_1, linear_key_2 = jax.random.split(key, 3)
+
         self.dropout = eqx.nn.Dropout()
         self.embedder = embedder
-        key, linear_key_1, linear_key_2 = jax.random.split(key, 3)
         self.network = eqx.nn.Sequential(
             [
                 eqx.nn.Linear(self.embedder.n_features, 32, key=linear_key_1),
@@ -43,8 +46,9 @@ class DeepPolicy(Policy):
         )
 
     @override
-    def __call__(self, observation: Observation, key: PRNGKey | None = None) -> Array:
-        x = self.embedder(observation.board)
+    def _call(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
+        embedder, x = self.embedder(obs)
         x = self.dropout(x, key=key)
         x = self.network(x)
-        return jax.nn.softmax(jnp.where(observation.action_mask, x, -jnp.inf))
+        x = jax.nn.softmax(jnp.where(obs.action_mask, x, -jnp.inf))
+        return ({"embedder": embedder}, x)

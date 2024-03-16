@@ -5,10 +5,15 @@ DISABLE_AUTO_UPDATE="true"
 DISABLE_UPDATE_PROMPT="true"
 ZSH_THEME="Soliah"
 
-
-plugins=()
+plugins=(
+    git
+    history-substring-search
+    sudo
+    zsh-autosuggestions
+    zsh-syntax-highlighting
+)
 
 alias pycpu="JAX_PLATFORM_NAME=cpu python"
+alias pytest="JAX_PLATFORM_NAME=cpu pytest"
 
-autoload -Uz compinit && compinit
 source $ZSH/oh-my-zsh.sh

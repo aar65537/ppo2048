@@ -5,7 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rl2048"
 version = "0.0.1"
-dependencies = ["equinox", "jumanji", "optax", "rlax"]
+dependencies = [
+    "equinox",
+    "jumanji",
+    "oopax@git+https://github.com/aar65537/oopax",
+    "optax",
+    "rlax",
+]
 requires-python = ">=3.12"
 authors = [{ name = "Avi Revah", email = "avraham.a.revah@gmail.com" }]
 description = "Proximal policy optimization agents to play logic game 2048."

@@ -3,29 +3,27 @@
 	"name": "rl2048",
 	"remoteUser": "root",
 	"workspaceMount": "",
+
 	"build": {
 		"dockerfile": "containerfile",
-		"context": "..",
 		"args": {
-			"PYTHON_VERSION": "3.12",
-			"WORKSPACE_FOLDER": "/workspaces/${localWorkspaceFolderBasename}"
+			"version": "3.12"
 		}
 	},
-	"features": {
-		"ghcr.io/devcontainers-contrib/features/zsh-plugins:0": {
-			"plugins": "dvc history-substring-search zsh-autosuggestions zsh-syntax-highlighting",
-			"omzPlugins": "https://github.com/zsh-users/zsh-autosuggestions https://github.com/zsh-users/zsh-syntax-highlighting"
-		}
-	},
+
 	"runArgs": [
 		"--cap-drop=ALL",
 		"--device=nvidia.com/gpu=all",
 		"--volume=${localWorkspaceFolder}:/workspaces/${localWorkspaceFolderBasename}:Z"
 	],
+
 	"securityOpt": [
 		"no-new-privileges",
 		"label=type:container_runtime_t"
 	],
+
+	"postCreateCommand": "python -m pip install -e /workspaces/${localWorkspaceFolderBasename}[dev,train]",
+
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -38,7 +36,6 @@
 				"tamasfe.even-better-toml"
 			],
 			"settings": {
-				"editor.formatOnSave": true,
 				"files.associations": {
 					"*.dvc": "yaml",
 					"dvc.lock": "yaml"
@@ -47,9 +44,6 @@
 					"local/*"
 				],
 				"mypy-type-checker.importStrategy": "fromEnvironment",
-				"python.editor.codeActionsOnSave": {
-					"source.organizeImports": "always"
-				},
 				"python.editor.defaultFormatter": "charliermarsh.ruff"
 			}
 		}

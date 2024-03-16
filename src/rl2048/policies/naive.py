@@ -14,17 +14,24 @@
 
 from typing import override
 
+import jax
 import jax.numpy as jnp
+import oopax
 from chex import PRNGKey
 from jaxtyping import Array
 
-from rl2048.game import Observation
 from rl2048.policies.base import Policy
+from rl2048.types import Observation
 
 
 class NaivePolicy(Policy):
+    key: PRNGKey
+
+    def __init__(self) -> None:
+        self.key = jax.random.PRNGKey(0)
+
     @override
-    def __call__(self, observation: Observation, key: PRNGKey | None = None) -> Array:
+    def _call(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
         del key
-        action = jnp.argmax(observation.action_mask * jnp.array((4, 3, 2, 1)))
-        return jnp.zeros((4,)).at[action].set(1)
+        action = jnp.argmax(obs.action_mask * jnp.array((4, 3, 2, 1)))
+        return {}, jnp.zeros((4,)).at[action].set(1)

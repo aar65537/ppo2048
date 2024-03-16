@@ -14,15 +14,22 @@
 
 from typing import override
 
+import jax
+import oopax
 from chex import PRNGKey
 from jaxtyping import Array
 
-from rl2048.game import Observation
 from rl2048.policies.base import Policy
+from rl2048.types import Observation
 
 
 class RandomPolicy(Policy):
+    key: PRNGKey
+
+    def __init__(self) -> None:
+        self.key = jax.random.PRNGKey(0)
+
     @override
-    def __call__(self, observation: Observation, key: PRNGKey | None = None) -> Array:
+    def _call(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
         del key
-        return observation.action_mask / observation.action_mask.sum()
+        return {}, obs.action_mask / obs.action_mask.sum()

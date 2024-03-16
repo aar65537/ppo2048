@@ -17,18 +17,13 @@ import jax.numpy as jnp
 import pytest
 from chex import PRNGKey
 from jaxtyping import Array
-from optax import GradientTransformation, adam
-from rl2048.game import Game, Observation
+from rl2048.game import Game, _get_jumanji_env  # noqa: PLC2701
+from rl2048.types import Observation
 
 
-@pytest.fixture()
-def key() -> PRNGKey:
-    return jax.random.PRNGKey(0)
-
-
-@pytest.fixture()
-def env(key: PRNGKey) -> Game:
-    return Game(key)
+@pytest.fixture(params=[True, False], ids=["jit", "no jit"])
+def jit(request: pytest.FixtureRequest) -> bool:
+    return request.param  # type: ignore[no-any-return]
 
 
 @pytest.fixture()
@@ -37,16 +32,28 @@ def board() -> Array:
 
 
 @pytest.fixture()
-def observation(env: Game, board: Array) -> Observation:
-    action_mask = jnp.asarray(env._env._get_action_mask(board))
+def obs(board: Array) -> Observation:
+    action_mask = jnp.asarray(_get_jumanji_env(board.shape[-1])._get_action_mask(board))
     return Observation(board, action_mask)
 
 
-@pytest.fixture()
-def n_epochs() -> int:
-    return 10
+@pytest.fixture(params=[0], ids=["seed=0"])
+def key(request: pytest.FixtureRequest) -> PRNGKey:
+    return jax.random.PRNGKey(request.param)
+
+
+@pytest.fixture(
+    params=[(), (10,), (5, 3)], ids=["shape=()", "shape=(10,)", "shape=(5,3)"]
+)
+def shape(request: pytest.FixtureRequest) -> tuple[int, ...] | None:
+    return request.param  # type: ignore[no-any-return]
+
+
+@pytest.fixture(params=[4, 5], ids=["board=4", "board=5"])
+def board_size(request: pytest.FixtureRequest) -> int:
+    return request.param  # type: ignore[no-any-return]
 
 
 @pytest.fixture()
-def optim() -> GradientTransformation:
-    return adam(0.01)
+def game(key: PRNGKey, shape: tuple[int, ...], board_size: int) -> Game:
+    return Game(key=key, batch_shape=shape, board_size=board_size)

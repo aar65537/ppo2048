@@ -42,7 +42,7 @@ from rl2048.utils import tree_select
 
 
 class Agent(eqx.Module):
-    key: PRNGKey
+    key: eqx.AbstractVar
     batch_size: int | None
     env: Game
     n_epochs: int
