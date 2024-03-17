@@ -12,20 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import jax
 
-import chex
-import equinox as eqx
-import jax.numpy as jnp
-from rl2048.embedders import Embedder
+from rl2048.agents.base import Agent
 from rl2048.game import Game
+from rl2048.policies.base import Policy
+from rl2048.policies.naive import NaivePolicy
 
 
-def test__call__(embedder: Embedder, game: Game, jit: bool) -> None:
-    with chex.fake_jit(not jit):
-        next_embedder, embedding = embedder(game.observation)
+class SimpleAgent(Agent):
+    game: Game
+    policy: Policy
 
-        chex.assert_trees_all_equal_shapes_and_dtypes(
-            eqx.filter(embedder, eqx.is_array), eqx.filter(next_embedder, eqx.is_array)
-        )
-        assert jnp.logical_not(jnp.equal(embedder.key, next_embedder.key)).all()
-        assert embedding.shape == (*game.batch_shape, embedder.n_features)
+    def __init__(self, game: Game, policy: Policy) -> None:
+        self.game = game
+        self.policy = policy
+
+
+def main() -> None:
+    key = jax.random.PRNGKey(0)
+    game = Game(key)
+    policy = NaivePolicy()
+    agent = SimpleAgent(game, policy)
+    next_agent, timesteps = agent.rollout(10)
+    print(timesteps)
+
+
+if __name__ == "__main__":
+    main()

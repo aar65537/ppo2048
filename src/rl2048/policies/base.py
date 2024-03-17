@@ -13,11 +13,9 @@
 # limitations under the License.
 
 from abc import abstractmethod
+from typing import Self
 
 import equinox as eqx
-import jax
-import jax.numpy as jnp
-import oopax
 from chex import PRNGKey
 from jaxtyping import Array
 
@@ -30,32 +28,9 @@ class Policy(eqx.Module):
     key: eqx.AbstractVar[PRNGKey]
 
     @abstractmethod
-    def _call(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
+    def __call__(self, obs: Observation) -> tuple[Self, Array]:
         raise NotImplementedError
 
-    @eqx.filter_jit
-    @oopax.capture_update
-    @oopax.consume_key
-    def __call__(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
-        key = jax.random.split(key, obs.batch_shape)
-        call = oopax.auto_vmap(self._call, lambda key: key.shape[:-1])
-        return call(key, obs)
-
-    @eqx.filter_jit
-    @oopax.capture_update
-    @oopax.consume_key
-    def sample(
-        self, key: PRNGKey, obs: Observation
-    ) -> tuple[oopax.MapTree, Array, Array]:
-        key = jax.random.split(key, obs.batch_shape)
-        sample = oopax.auto_vmap(self._sample, lambda key: key.shape[:-1])
-        return sample(key, obs)
-
-    def _sample(
-        self, key: PRNGKey, obs: Observation
-    ) -> tuple[oopax.MapTree, Array, Array]:
-        call_key, choice_key = jax.random.split(key)
-        update, probs = self._call(call_key, obs)
-        action = jax.random.choice(choice_key, jnp.arange(4, dtype=jnp.int32), p=probs)
-        neglogprob = -jnp.log(probs[action])
-        return update, action, neglogprob
+    @abstractmethod
+    def sample(self, obs: Observation) -> tuple[Self, Array, Array]:
+        raise NotImplementedError

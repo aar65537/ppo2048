@@ -57,7 +57,7 @@ class ActorCriticAgent(Agent):
         super().__init__(
             key,
             batch_size=batch_size,
-            env=env,
+            game=env,
             n_epochs=n_epochs,
             optim=optim,
             rollout_size=rollout_size,

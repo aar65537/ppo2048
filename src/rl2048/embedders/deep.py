@@ -15,7 +15,6 @@
 
 import equinox as eqx
 import jax
-import oopax
 from chex import PRNGKey
 from jaxtyping import Array
 
@@ -45,9 +44,9 @@ class DeepEmbedder(Embedder):
             ]
         )
         obs = Observation.generate(board_size)
-        self.n_features = self._call(call_key, obs)[1].shape[0]
+        self.n_features = self._call(call_key, obs).shape[0]
 
-    def _call(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
-        return {}, self.network(
+    def _call(self, key: PRNGKey, obs: Observation) -> Array:
+        return self.network(
             jax.nn.one_hot(obs.board, self.n_tiles, axis=0), key=key
         ).flatten()

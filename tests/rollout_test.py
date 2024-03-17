@@ -12,9 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# from rl2048.agents.actor_critic import ActorCriticAgent
-# from rl2048.agents.base import Agent
-# from rl2048.agents.types import Report, Rollout
-# from rl2048.agents.vgp import VGPAgent
+import pytest
+from rl2048.game import Game
+from rl2048.policies import Policy
+from rl2048.rollout import rollout
 
-# __all__ = ["ActorCriticAgent", "Agent", "Report", "Rollout", "VGPAgent"]
+
+@pytest.fixture()
+def n_steps() -> int:
+    return 100
+
+
+def test_rollout(game: Game, policy: Policy, n_steps: int) -> None:
+    next_game, next_policy, timesteps = rollout(game, policy, n_steps)

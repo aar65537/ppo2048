@@ -33,8 +33,8 @@ class Embedder(eqx.Module):
     def __call__(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
         key = jax.random.split(key, obs.batch_shape)
         call = oopax.auto_vmap(self._call, lambda key: key.shape[:-1])
-        return call(key, obs)
+        return {}, call(key, obs)
 
     @abstractmethod
-    def _call(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
+    def _call(self, key: PRNGKey, obs: Observation) -> Array:
         raise NotImplementedError

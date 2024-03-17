@@ -12,78 +12,54 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
-
 import chex
-import jax
+import equinox as eqx
 import jax.numpy as jnp
 import pytest
-from chex import PRNGKey
 from jaxtyping import Array
-from rl2048.embedders import DeepEmbedder
 from rl2048.game import Game
-from rl2048.policies import DeepPolicy, NaivePolicy, Policy, RandomPolicy
+from rl2048.policies import NaivePolicy, Policy
 from rl2048.types import Observation
 
 
-class PolicyType(Enum):
-    DEEP = DeepPolicy
-    NAIVE = NaivePolicy
-    RANDOM = RandomPolicy
-
-    def create(self, key: PRNGKey, board_size: int = 4) -> Policy:
-        match self:
-            case PolicyType.DEEP:
-                embedder_key, policy_key = jax.random.split(key)
-                embedder = DeepEmbedder(embedder_key, board_size)
-                return DeepPolicy(policy_key, embedder)
-            case PolicyType.NAIVE:
-                return NaivePolicy()
-            case PolicyType.RANDOM:
-                return RandomPolicy()
-            case _:
-                msg = f"Policy type {self!r} not recognized."
-                raise ValueError(msg)
-
-
-pytestmark = [pytest.mark.parametrize("policy_type", list(PolicyType))]
-
-
-def test__call__(key: PRNGKey, game: Game, policy_type: PolicyType, jit: bool) -> None:
+def test__call__(game: Game, policy: Policy, jit: bool) -> None:
     with chex.fake_jit(not jit):
-        policy = policy_type.create(key, game.board_size)
-        new_policy, probs = policy(game.observation)
+        next_policy, probs = policy(game.observation)
 
-        assert jnp.logical_not(jnp.equal(policy.key, new_policy.key)).all()
+        chex.assert_trees_all_equal_shapes_and_dtypes(
+            eqx.filter(policy, eqx.is_array), eqx.filter(next_policy, eqx.is_array)
+        )
+        assert jnp.logical_not(jnp.equal(policy.key, next_policy.key)).all()
         chex.assert_trees_all_close(probs.sum(-1), 1)
 
 
 @pytest.mark.parametrize("n_actions", [0, 1, 2, 3])
 def test__call__masking(
-    key: PRNGKey, board: Array, policy_type: PolicyType, n_actions: int, jit: bool
+    board: Array, policy: Policy, jit: bool, n_actions: int
 ) -> None:
     with chex.fake_jit(not jit):
-        policy = policy_type.create(key)
         action_mask = jnp.zeros(4, jnp.int32).at[n_actions:].set(1)
         observation = Observation(board, action_mask)
-        new_policy, probs = policy(observation)
+        next_policy, probs = policy(observation)
 
-        assert jnp.logical_not(jnp.equal(policy.key, new_policy.key)).all()
+        assert jnp.logical_not(jnp.equal(policy.key, next_policy.key)).all()
         chex.assert_trees_all_close(probs.sum(), 1)
         chex.assert_trees_all_close(probs[:n_actions], 0)
-        if policy_type == PolicyType.NAIVE:
+        if isinstance(policy, NaivePolicy):
             chex.assert_trees_all_close(probs[n_actions], 1)
             chex.assert_trees_all_close(probs[n_actions + 1 :], 0)
         else:
             assert all(probs[n_actions:] > 0)
 
 
-def test_sample(key: PRNGKey, game: Game, policy_type: PolicyType, jit: bool) -> None:
+def test_sample(game: Game, policy: Policy, jit: bool) -> None:
     with chex.fake_jit(not jit):
-        policy = policy_type.create(key, game.board_size)
-        new_policy, action, neglogprob = policy.sample(game.observation)
+        next_policy, action, neglogprob = policy.sample(game.observation)
 
-        assert jnp.logical_not(jnp.equal(policy.key, new_policy.key)).all()
+        chex.assert_trees_all_equal_shapes_and_dtypes(
+            eqx.filter(policy, eqx.is_array), eqx.filter(next_policy, eqx.is_array)
+        )
+        assert jnp.logical_not(jnp.equal(policy.key, next_policy.key)).all()
         assert (action >= 0).all()
         assert (action < 4).all()
         assert (neglogprob >= 0).all()

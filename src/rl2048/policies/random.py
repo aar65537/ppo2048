@@ -14,7 +14,9 @@
 
 from typing import override
 
+import equinox as eqx
 import jax
+import jax.numpy as jnp
 import oopax
 from chex import PRNGKey
 from jaxtyping import Array
@@ -30,6 +32,32 @@ class RandomPolicy(Policy):
         self.key = jax.random.PRNGKey(0)
 
     @override
-    def _call(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
-        del key
-        return {}, obs.action_mask / obs.action_mask.sum()
+    @eqx.filter_jit
+    @oopax.capture_update
+    @oopax.consume_key
+    def __call__(self, key: PRNGKey, obs: Observation) -> tuple[oopax.MapTree, Array]:
+        key = jax.random.split(key, obs.batch_shape)
+        call = oopax.auto_vmap(self._call, lambda key: key.shape[:-1])
+        return {}, call(key, obs)
+
+    @override
+    @eqx.filter_jit
+    @oopax.capture_update
+    @oopax.consume_key
+    def sample(
+        self, key: PRNGKey, obs: Observation
+    ) -> tuple[oopax.MapTree, Array, Array]:
+        key = jax.random.split(key, obs.batch_shape)
+        sample = oopax.auto_vmap(self._sample, lambda key: key.shape[:-1])
+        return {}, *sample(key, obs)
+
+    def _call(self, key: PRNGKey, obs: Observation) -> Array:
+        del self, key
+        return obs.action_mask / obs.action_mask.sum()
+
+    def _sample(self, key: PRNGKey, obs: Observation) -> tuple[Array, Array]:
+        call_key, choice_key = jax.random.split(key)
+        probs = self._call(call_key, obs)
+        action = jax.random.choice(choice_key, jnp.arange(4, dtype=jnp.int32), p=probs)
+        neglogprob = -jnp.log(probs[action])
+        return action, neglogprob
