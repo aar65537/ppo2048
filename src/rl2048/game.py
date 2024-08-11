@@ -25,6 +25,7 @@ import oopax
 from chex import PRNGKey
 from jaxtyping import Array
 from jumanji.environments.logic.game_2048.env import Game2048 as _Game2048
+from jumanji.environments.logic.game_2048.types import State
 from jumanji.wrappers import AutoResetWrapper
 
 from rl2048.types import Observation
@@ -74,21 +75,27 @@ class Game(eqx.Module):
         return _get_jumanji_env(self.board_size)
 
     @eqx.filter_jit
-    @oopax.strip_output
-    @oopax.capture_update
+    @oopax.strip
+    @oopax.update
     def reset(self) -> tuple[oopax.MapTree]:
-        reset = oopax.auto_vmap(self._env.reset, lambda key: key.shape[:-1])
-        state, _ = reset(self.key)
+        state = self._reset()
         return (asdict(state),)
 
+    @oopax.vectorize("->()")
+    def _reset(self) -> State:
+        return self._env.reset(self.key)[0]
+
     @eqx.filter_jit
-    @oopax.capture_update
-    @oopax.auto_vmap
+    @oopax.update
     def step(self, action: Array) -> tuple[oopax.MapTree, Array, Observation]:
         """Perfom action on game."""
         state, timestep = self._env.step(self, action)  # type: ignore[arg-type]
         next_obs = Observation(*timestep.extras["next_obs"])
         return asdict(state), jnp.asarray(timestep.reward), next_obs
+
+    @oopax.vectorize("()->()")
+    def _step(self, action: Array) -> tuple[State, Array, Observation]:
+        state, timestep = self._env.step(self, action)
 
     def max_tile(self, *args: Any, **kwargs: Any) -> Array:
         return self.observation.max_tile(*args, **kwargs)
